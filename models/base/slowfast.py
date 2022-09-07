@@ -10,6 +10,7 @@ from models.base.base_blocks import (
 from models.base.backbone import BACKBONE_REGISTRY, _n_conv_resnet
 from models.utils.init_helper import _init_convnet_weights
 
+
 @BACKBONE_REGISTRY.register()
 class Slowfast(nn.Module):
     """
@@ -20,6 +21,7 @@ class Slowfast(nn.Module):
 
     Modified from https://github.com/facebookresearch/SlowFast/blob/master/slowfast/models/video_model_builder.py.
     """
+
     def __init__(self, cfg):
         super(Slowfast, self).__init__()
         self.mode = cfg.VIDEO.BACKBONE.SLOWFAST.MODE
@@ -27,13 +29,13 @@ class Slowfast(nn.Module):
             self.slow_enable = True
             self.fast_enable = True
         elif self.mode == "slowonly":
-            self.slow_enable = True 
+            self.slow_enable = True
             self.fast_enable = False
         elif self.mode == "fastonly":
             self.slow_enable = False
             self.fast_enable = True
         self._construct_backbone(cfg)
-    
+
     def _construct_slowfast_cfg(self, cfg):
         cfgs = []
         for i in range(2):
@@ -43,7 +45,7 @@ class Slowfast(nn.Module):
             if i == 1:
                 pseudo_cfg.VIDEO.BACKBONE.ADD_FUSION_CHANNEL = False
                 for idx, k in enumerate(pseudo_cfg.VIDEO.BACKBONE.NUM_FILTERS):
-                    pseudo_cfg.VIDEO.BACKBONE.NUM_FILTERS[idx] = k//cfg.VIDEO.BACKBONE.SLOWFAST.BETA
+                    pseudo_cfg.VIDEO.BACKBONE.NUM_FILTERS[idx] = k // cfg.VIDEO.BACKBONE.SLOWFAST.BETA
             else:
                 pseudo_cfg.VIDEO.BACKBONE.ADD_FUSION_CHANNEL = self.fast_enable
             cfgs.append(pseudo_cfg)
@@ -62,7 +64,6 @@ class Slowfast(nn.Module):
                 )
         return modules
 
-
     def _construct_backbone(self, cfg):
         # ------------------- Stem -------------------
         cfgs = self._construct_slowfast_cfg(cfg)
@@ -76,28 +77,26 @@ class Slowfast(nn.Module):
 
         # ------------------- Main arch -------------------
         self.slow_conv2, self.fast_conv2 = self._construct_slowfast_module(
-            cfgs, Base3DResStage, num_blocks = n1, stage_idx = 1,
+            cfgs, Base3DResStage, num_blocks=n1, stage_idx=1,
         )
         self.slowfast_fusion2 = FuseFastToSlow(cfgs, stage_idx=1, mode=self.mode)
 
         self.slow_conv3, self.fast_conv3 = self._construct_slowfast_module(
-            cfgs, Base3DResStage, num_blocks = n2, stage_idx = 2,
+            cfgs, Base3DResStage, num_blocks=n2, stage_idx=2,
         )
         self.slowfast_fusion3 = FuseFastToSlow(cfgs, stage_idx=2, mode=self.mode)
 
-
         self.slow_conv4, self.fast_conv4 = self._construct_slowfast_module(
-            cfgs, Base3DResStage, num_blocks = n3, stage_idx = 3,
+            cfgs, Base3DResStage, num_blocks=n3, stage_idx=3,
         )
         self.slowfast_fusion4 = FuseFastToSlow(cfgs, stage_idx=3, mode=self.mode)
 
-
         self.slow_conv5, self.fast_conv5 = self._construct_slowfast_module(
-            cfgs, Base3DResStage, num_blocks = n4, stage_idx = 4,
+            cfgs, Base3DResStage, num_blocks=n4, stage_idx=4,
         )
 
         _init_convnet_weights(self)
-    
+
     def forward(self, x):
         if isinstance(x, dict):
             x = x["video"]
@@ -116,18 +115,20 @@ class Slowfast(nn.Module):
         x_slow, x_fast = self.slow_conv5(x_slow), self.fast_conv5(x_fast)
         return x_slow, x_fast
 
+
 class FuseFastToSlow(nn.Module):
     def __init__(self, cfg, stage_idx, mode):
         super(FuseFastToSlow, self).__init__()
         self.mode = mode
         if mode == "slowfast":
             slow_cfg, fast_cfg = cfg
-            dim_in      = fast_cfg.VIDEO.BACKBONE.NUM_FILTERS[stage_idx]
-            dim_out     = fast_cfg.VIDEO.BACKBONE.NUM_FILTERS[stage_idx] * fast_cfg.VIDEO.BACKBONE.SLOWFAST.CONV_CHANNEL_RATIO
+            dim_in = fast_cfg.VIDEO.BACKBONE.NUM_FILTERS[stage_idx]
+            dim_out = fast_cfg.VIDEO.BACKBONE.NUM_FILTERS[
+                          stage_idx] * fast_cfg.VIDEO.BACKBONE.SLOWFAST.CONV_CHANNEL_RATIO
             kernel_size = [fast_cfg.VIDEO.BACKBONE.SLOWFAST.KERNEL_SIZE, 1, 1]
-            stride      = [fast_cfg.VIDEO.BACKBONE.SLOWFAST.ALPHA, 1, 1]
-            padding     = [fast_cfg.VIDEO.BACKBONE.SLOWFAST.KERNEL_SIZE//2, 0, 0]
-            bias        = fast_cfg.VIDEO.BACKBONE.SLOWFAST.FUSION_CONV_BIAS
+            stride = [fast_cfg.VIDEO.BACKBONE.SLOWFAST.ALPHA, 1, 1]
+            padding = [fast_cfg.VIDEO.BACKBONE.SLOWFAST.KERNEL_SIZE // 2, 0, 0]
+            bias = fast_cfg.VIDEO.BACKBONE.SLOWFAST.FUSION_CONV_BIAS
             self.conv_fast_to_slow = nn.Conv3d(
                 dim_in,
                 dim_out,

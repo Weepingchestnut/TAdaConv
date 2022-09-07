@@ -5,7 +5,6 @@
 Modified from https://github.com/JJBOY/BMN-Boundary-Matching-Network/blob/master/models.py.
 """
 
-
 import os
 import abc
 import math
@@ -16,14 +15,16 @@ import torch.nn.functional as F
 from utils.registry import Registry
 from models.base.base_blocks import HEAD_REGISTRY
 
+
 @HEAD_REGISTRY.register()
 class BaseBMN(nn.Module):
     """
     Head for predicting boundary matching map.
     """
+
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
     ):
         """
         Args: 
@@ -42,9 +43,10 @@ class BaseBMN(nn.Module):
         self._construct_head()
 
     def _construct_head(
-        self,
+            self,
     ):
-        self.sample_mask = nn.Parameter(self.get_interp1d_mask(self.prop_boundary_ratio, self.num_sample), requires_grad=False)
+        self.sample_mask = nn.Parameter(self.get_interp1d_mask(self.prop_boundary_ratio, self.num_sample),
+                                        requires_grad=False)
         self.x_1d_s = nn.Sequential(
             nn.Conv1d(self.hidden_dim_1d, self.hidden_dim_1d, kernel_size=3, padding=1, groups=4),
             nn.ReLU(inplace=True),
@@ -63,7 +65,8 @@ class BaseBMN(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.x_3d_p = nn.Sequential(
-            nn.Conv3d(self.hidden_dim_1d, self.hidden_dim_3d, kernel_size=(self.num_sample, 1, 1),stride=(self.num_sample, 1, 1)),
+            nn.Conv3d(self.hidden_dim_1d, self.hidden_dim_3d, kernel_size=(self.num_sample, 1, 1),
+                      stride=(self.num_sample, 1, 1)),
             nn.ReLU(inplace=True)
         )
         self.x_2d_p = nn.Sequential(
@@ -139,11 +142,11 @@ class BaseBMN(nn.Module):
         else:
             verb_map, noun_map = {}, {}
         output = {"confidence_map": confidence_map,
-                "start": start,
-                "end": end,
-                "reg_map": reg_map, 
-                "verb_map": verb_map,
-                "noun_map": noun_map}
+                  "start": start,
+                  "end": end,
+                  "reg_map": reg_map,
+                  "verb_map": verb_map,
+                  "noun_map": noun_map}
         return output, {}
 
     def _boundary_matching_layer(self, x):
@@ -155,7 +158,8 @@ class BaseBMN(nn.Module):
             output (Tensor): matched features for proposals
         """
         input_size = x.size()
-        out = torch.matmul(x, self.sample_mask).reshape(input_size[0],input_size[1],self.num_sample,self.dscale,self.tscale)
+        out = torch.matmul(x, self.sample_mask).reshape(input_size[0], input_size[1], self.num_sample, self.dscale,
+                                                        self.tscale)
         return out
 
     def get_interp1d_mask(self, prop_boundary_ratio, num_sample):

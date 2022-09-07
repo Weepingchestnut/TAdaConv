@@ -16,6 +16,7 @@ from models.utils.model_ema import ModelEmaV2
 
 logger = logging.get_logger(__name__)
 
+
 def build_model(cfg, gpu_id=None):
     """
     Builds the video model.
@@ -37,11 +38,11 @@ def build_model(cfg, gpu_id=None):
 
     if torch.cuda.is_available():
         assert (
-            cfg.NUM_GPUS <= torch.cuda.device_count()
+                cfg.NUM_GPUS <= torch.cuda.device_count()
         ), "Cannot use more GPU devices than available"
     else:
         assert (
-            cfg.NUM_GPUS == 0
+                cfg.NUM_GPUS == 0
         ), "Cuda is not available. Please set `NUM_GPUS: 0 for running on CPUs."
 
     if cfg.NUM_GPUS:
@@ -51,7 +52,7 @@ def build_model(cfg, gpu_id=None):
         else:
             cur_device = gpu_id
         model = model.cuda(device=cur_device)
-    
+
     model_ema = None
     if cfg.MODEL.EMA.ENABLE:
         model_ema = ModelEmaV2(model, decay=cfg.MODEL.EMA.DECAY)
@@ -66,7 +67,7 @@ def build_model(cfg, gpu_id=None):
         sync_bn = None
 
     # Use multi-process data parallel model in the multi-gpu setting
-    if cfg.NUM_GPUS*cfg.NUM_SHARDS > 1:
+    if cfg.NUM_GPUS * cfg.NUM_SHARDS > 1:
         # Make model replica operate on the current device
         if cfg.PAI:
             # Support distributed training on the cluster

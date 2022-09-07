@@ -9,6 +9,7 @@ from models.base.base_blocks import HEAD_REGISTRY
 
 MODEL_REGISTRY = Registry("Model")
 
+
 class BaseVideoModel(nn.Module):
     """
     Standard video model.
@@ -23,6 +24,7 @@ class BaseVideoModel(nn.Module):
     The registries automatically finds the registered modules and construct 
     the base video model.
     """
+
     def __init__(self, cfg):
         """
         Args: 
@@ -30,7 +32,7 @@ class BaseVideoModel(nn.Module):
         """
         super(BaseVideoModel, self).__init__()
         self.cfg = cfg
-        
+
         # the backbone is created according to meta-architectures 
         # defined in models/base/backbone.py
         self.backbone = BACKBONE_REGISTRY.get(cfg.VIDEO.BACKBONE.META_ARCH)(cfg=cfg)
@@ -38,12 +40,12 @@ class BaseVideoModel(nn.Module):
         # the head is created according to the heads 
         # defined in models/module_zoo/heads
         self.head = HEAD_REGISTRY.get(cfg.VIDEO.HEAD.NAME)(cfg=cfg)
-        
+
     def forward(self, x):
         x = self.backbone(x)
         x = self.head(x)
         return x
-    
+
     def train(self, mode=True):
         r"""Sets the module in training mode.
 
@@ -66,18 +68,19 @@ class BaseVideoModel(nn.Module):
                 module.train(False)
         return self
 
+
 @MODEL_REGISTRY.register()
 class MoSINet(BaseVideoModel):
     def __init__(self, cfg):
         super(MoSINet, self).__init__(cfg)
-    
+
     def forward(self, x):
         if isinstance(x, dict):
             x_data = x["video"]
         else:
             x_data = x
         b, n, c, t, h, w = x_data.shape
-        x_data = x_data.reshape(b*n, c, t, h, w)
+        x_data = x_data.reshape(b * n, c, t, h, w)
         res, logits = super(MoSINet, self).forward(x_data)
         pred = {}
         if isinstance(res, dict):

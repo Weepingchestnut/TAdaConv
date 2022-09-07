@@ -9,6 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.modules.utils import _triple
 
+
 class RouteFuncMLP(nn.Module):
     """
     The routing function for generating the calibration weights.
@@ -23,7 +24,7 @@ class RouteFuncMLP(nn.Module):
         """
         super(RouteFuncMLP, self).__init__()
         self.c_in = c_in
-        self.avgpool = nn.AdaptiveAvgPool3d((None,1,1))
+        self.avgpool = nn.AdaptiveAvgPool3d((None, 1, 1))
         self.globalpool = nn.AdaptiveAvgPool3d(1)
         self.g = nn.Conv3d(
             in_channels=c_in,
@@ -33,23 +34,23 @@ class RouteFuncMLP(nn.Module):
         )
         self.a = nn.Conv3d(
             in_channels=c_in,
-            out_channels=int(c_in//ratio),
-            kernel_size=[kernels[0],1,1],
-            padding=[kernels[0]//2,0,0],
+            out_channels=int(c_in // ratio),
+            kernel_size=[kernels[0], 1, 1],
+            padding=[kernels[0] // 2, 0, 0],
         )
-        self.bn = nn.BatchNorm3d(int(c_in//ratio), eps=bn_eps, momentum=bn_mmt)
+        self.bn = nn.BatchNorm3d(int(c_in // ratio), eps=bn_eps, momentum=bn_mmt)
         self.relu = nn.ReLU(inplace=True)
         self.b = nn.Conv3d(
-            in_channels=int(c_in//ratio),
+            in_channels=int(c_in // ratio),
             out_channels=c_in,
-            kernel_size=[kernels[1],1,1],
-            padding=[kernels[1]//2,0,0],
+            kernel_size=[kernels[1], 1, 1],
+            padding=[kernels[1] // 2, 0, 0],
             bias=False
         )
-        self.b.skip_init=True
-        self.b.weight.data.zero_() # to make sure the initial values 
-                                   # for the output is 1.
-        
+        self.b.skip_init = True
+        self.b.weight.data.zero_()  # to make sure the initial values
+        # for the output is 1.
+
     def forward(self, x):
         g = self.globalpool(x)
         x = self.avgpool(x)
@@ -58,6 +59,7 @@ class RouteFuncMLP(nn.Module):
         x = self.relu(x)
         x = self.b(x) + 1
         return x
+
 
 class TAdaConv2d(nn.Module):
     """
@@ -126,16 +128,16 @@ class TAdaConv2d(nn.Module):
         """
         _, _, c_out, c_in, kh, kw = self.weight.size()
         b, c_in, t, h, w = x.size()
-        x = x.permute(0,2,1,3,4).reshape(1,-1,h,w)
+        x = x.permute(0, 2, 1, 3, 4).reshape(1, -1, h, w)
 
         if self.cal_dim == "cin":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, 1, C, H(1), W(1)
             # corresponding to calibrating the input channel
-            weight = (alpha.permute(0,2,1,3,4).unsqueeze(2) * self.weight).reshape(-1, c_in//self.groups, kh, kw)
+            weight = (alpha.permute(0, 2, 1, 3, 4).unsqueeze(2) * self.weight).reshape(-1, c_in // self.groups, kh, kw)
         elif self.cal_dim == "cout":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, C, 1, H(1), W(1)
             # corresponding to calibrating the input channel
-            weight = (alpha.permute(0,2,1,3,4).unsqueeze(3) * self.weight).reshape(-1, c_in//self.groups, kh, kw)
+            weight = (alpha.permute(0, 2, 1, 3, 4).unsqueeze(3) * self.weight).reshape(-1, c_in // self.groups, kh, kw)
 
         bias = None
         if self.bias is not None:
@@ -147,13 +149,14 @@ class TAdaConv2d(nn.Module):
             x, weight=weight, bias=bias, stride=self.stride[1:], padding=self.padding[1:],
             dilation=self.dilation[1:], groups=self.groups * b * t)
 
-        output = output.view(b, t, c_out, output.size(-2), output.size(-1)).permute(0,2,1,3,4)
+        output = output.view(b, t, c_out, output.size(-2), output.size(-1)).permute(0, 2, 1, 3, 4)
 
         return output
-        
+
     def __repr__(self):
-        return f"TAdaConv2d({self.in_channels}, {self.out_channels}, kernel_size={self.kernel_size}, " +\
-            f"stride={self.stride}, padding={self.padding}, bias={self.bias is not None}, cal_dim=\"{self.cal_dim}\")"
+        return f"TAdaConv2d({self.in_channels}, {self.out_channels}, kernel_size={self.kernel_size}, " + \
+               f"stride={self.stride}, padding={self.padding}, bias={self.bias is not None}, cal_dim=\"{self.cal_dim}\")"
+
 
 class TAdaConv3d(nn.Module):
     """
@@ -218,18 +221,22 @@ class TAdaConv3d(nn.Module):
         """
         _, _, c_out, c_in, kt, kh, kw = self.weight.size()
         b, c_in, t, h, w = x.size()
-        x = torch.nn.functional.pad(x, (0,0,0,0,kt//2,kt//2), "constant", 0).unfold(
+        x = torch.nn.functional.pad(x, (0, 0, 0, 0, kt // 2, kt // 2), "constant", 0).unfold(
             dimension=2, size=kt, step=1
-        ).permute(0,2,1,5,3,4).reshape(1, -1, kt, h, w)
+        ).permute(0, 2, 1, 5, 3, 4).reshape(1, -1, kt, h, w)
 
         if self.cal_dim == "cin":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, 1, C, H(1), W(1) -> B, T, 1, C, 1, H(1), W(1)
             # corresponding to calibrating the input channel
-            weight = (alpha.permute(0,2,1,3,4).unsqueeze(2).unsqueeze(-1) * self.weight).reshape(-1, c_in//self.groups, kt, kh, kw)
+            weight = (alpha.permute(0, 2, 1, 3, 4).unsqueeze(2).unsqueeze(-1) * self.weight).reshape(-1,
+                                                                                                     c_in // self.groups,
+                                                                                                     kt, kh, kw)
         elif self.cal_dim == "cout":
             # w_alpha: B, C, T, H(1), W(1) -> B, T, C, H(1), W(1) -> B, T, C, 1, H(1), W(1)
             # corresponding to calibrating the input channel
-            weight = (alpha.permute(0,2,1,3,4).unsqueeze(3).unsqueeze(-1) * self.weight).reshape(-1, c_in//self.groups, kt, kh, kw)
+            weight = (alpha.permute(0, 2, 1, 3, 4).unsqueeze(3).unsqueeze(-1) * self.weight).reshape(-1,
+                                                                                                     c_in // self.groups,
+                                                                                                     kt, kh, kw)
 
         bias = None
         if self.bias is not None:
@@ -241,10 +248,10 @@ class TAdaConv3d(nn.Module):
             x, weight=weight, bias=bias, stride=[1] + list(self.stride[1:]), padding=[0] + list(self.padding[1:]),
             dilation=[1] + list(self.dilation[1:]), groups=self.groups * b * t)
 
-        output = output.view(b, t, c_out, output.size(-2), output.size(-1)).permute(0,2,1,3,4)
+        output = output.view(b, t, c_out, output.size(-2), output.size(-1)).permute(0, 2, 1, 3, 4)
 
         return output
-        
+
     def __repr__(self):
-        return f"TAdaConv3d({self.in_channels}, {self.out_channels}, kernel_size={self.kernel_size}, " +\
-            f"stride={self.stride}, padding={self.padding}, bias={self.bias is not None}, cal_dim=\"{self.cal_dim}\")"
+        return f"TAdaConv3d({self.in_channels}, {self.out_channels}, kernel_size={self.kernel_size}, " + \
+               f"stride={self.stride}, padding={self.padding}, bias={self.bias is not None}, cal_dim=\"{self.cal_dim}\")"

@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.base.base_blocks import BaseBranch, BRANCH_REGISTRY
 
+
 @BRANCH_REGISTRY.register()
 class NonLocal(BaseBranch):
     """
@@ -56,7 +57,7 @@ class NonLocal(BaseBranch):
         self.out_bn = nn.BatchNorm3d(self.num_filters, eps=1e-5, momentum=self.bn_mmt)
 
     def forward(self, x):
-        n,c,t,h,w = x.shape
+        n, c, t, h, w = x.shape
 
         query = self.qconv(x).view(n, self.dim_middle, -1)
         key = self.kconv(x).view(n, self.dim_middle, -1)
@@ -71,5 +72,3 @@ class NonLocal(BaseBranch):
         out = self.out_conv(out)
         out = self.out_bn(out)
         return x + out
-
-

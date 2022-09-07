@@ -26,11 +26,13 @@ _n_conv_resnet = {
     152: (3, 8, 36, 3),
 }
 
+
 @BACKBONE_REGISTRY.register()
 class ResNet3D(nn.Module):
     """
     Meta architecture for 3D ResNet based models. 
     """
+
     def __init__(self, cfg):
         """
         Args: 
@@ -47,33 +49,33 @@ class ResNet3D(nn.Module):
 
         # ------------------- Main arch -------------------
         self.conv2 = Base3DResStage(
-            cfg                     = cfg,
-            num_blocks              = n1,
-            stage_idx               = 1,
+            cfg=cfg,
+            num_blocks=n1,
+            stage_idx=1,
         )
 
         self.conv3 = Base3DResStage(
-            cfg                     = cfg,
-            num_blocks              = n2,
-            stage_idx               = 2,
+            cfg=cfg,
+            num_blocks=n2,
+            stage_idx=2,
         )
 
         self.conv4 = Base3DResStage(
-            cfg                     = cfg,
-            num_blocks              = n3,
-            stage_idx               = 3,
+            cfg=cfg,
+            num_blocks=n3,
+            stage_idx=3,
         )
 
         self.conv5 = Base3DResStage(
-            cfg                     = cfg,
-            num_blocks              = n4,
-            stage_idx               = 4,
+            cfg=cfg,
+            num_blocks=n4,
+            stage_idx=4,
         )
-        
+
         # perform initialization
         if cfg.VIDEO.BACKBONE.INITIALIZATION == "kaiming":
             _init_convnet_weights(self)
-    
+
     def forward(self, x):
         if type(x) is list:
             x = x[0]
@@ -87,12 +89,14 @@ class ResNet3D(nn.Module):
         x = self.conv5(x)
         return x
 
+
 @BACKBONE_REGISTRY.register()
 class Inception3D(nn.Module):
     """
     Backbone architecture for I3D/S3DG. 
     Modifed from https://github.com/TengdaHan/CoCLR/blob/main/backbone/s3dg.py.
     """
+
     def __init__(self, cfg):
         """
         Args: 
@@ -106,40 +110,40 @@ class Inception3D(nn.Module):
         )
 
     def _construct_backbone(
-        self, 
-        cfg,
-        input_channel
+            self,
+            cfg,
+            input_channel
     ):
         # ------------------- Block 1 -------------------
         self.Conv_1a = BRANCH_REGISTRY.get(cfg.VIDEO.BACKBONE.STEM.NAME)(
             cfg, input_channel, 64, kernel_size=7, stride=2, padding=3
         )
 
-        self.block1 = nn.Sequential(self.Conv_1a) # (64, 32, 112, 112)
+        self.block1 = nn.Sequential(self.Conv_1a)  # (64, 32, 112, 112)
 
         # ------------------- Block 2 -------------------
         self.MaxPool_2a = nn.MaxPool3d(
-            kernel_size=(1,3,3), stride=(1,2,2), padding=(0,1,1)
-        ) 
-        self.Conv_2b = InceptionBaseConv3D(cfg, 64, 64, kernel_size=1, stride=1) 
+            kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)
+        )
+        self.Conv_2b = InceptionBaseConv3D(cfg, 64, 64, kernel_size=1, stride=1)
         self.Conv_2c = BRANCH_REGISTRY.get(cfg.VIDEO.BACKBONE.BRANCH.NAME)(
             cfg, 64, 192, kernel_size=3, stride=1, padding=1
-        ) 
+        )
 
         self.block2 = nn.Sequential(
-            self.MaxPool_2a, # (64, 32, 56, 56)
-            self.Conv_2b,    # (64, 32, 56, 56)
-            self.Conv_2c)    # (192, 32, 56, 56)
+            self.MaxPool_2a,  # (64, 32, 56, 56)
+            self.Conv_2b,  # (64, 32, 56, 56)
+            self.Conv_2c)  # (192, 32, 56, 56)
 
         # ------------------- Block 3 -------------------
-        self.MaxPool_3a = nn.MaxPool3d(kernel_size=(1,3,3), stride=(1,2,2), padding=(0,1,1)) 
+        self.MaxPool_3a = nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
         self.Mixed_3b = InceptionBlock3D(cfg, in_planes=192, out_planes=[64, 96, 128, 16, 32, 32])
         self.Mixed_3c = InceptionBlock3D(cfg, in_planes=256, out_planes=[128, 128, 192, 32, 96, 64])
 
         self.block3 = nn.Sequential(
-            self.MaxPool_3a,    # (192, 32, 28, 28)
-            self.Mixed_3b,      # (256, 32, 28, 28)
-            self.Mixed_3c)      # (480, 32, 28, 28)
+            self.MaxPool_3a,  # (192, 32, 28, 28)
+            self.Mixed_3b,  # (256, 32, 28, 28)
+            self.Mixed_3c)  # (480, 32, 28, 28)
 
         # ------------------- Block 4 -------------------
         self.MaxPool_4a = nn.MaxPool3d(kernel_size=(3, 3, 3), stride=(2, 2, 2), padding=(1, 1, 1))
@@ -151,11 +155,11 @@ class Inception3D(nn.Module):
 
         self.block4 = nn.Sequential(
             self.MaxPool_4a,  # (480, 16, 14, 14)
-            self.Mixed_4b,    # (512, 16, 14, 14)
-            self.Mixed_4c,    # (512, 16, 14, 14)
-            self.Mixed_4d,    # (512, 16, 14, 14)
-            self.Mixed_4e,    # (528, 16, 14, 14)
-            self.Mixed_4f)    # (832, 16, 14, 14)
+            self.Mixed_4b,  # (512, 16, 14, 14)
+            self.Mixed_4c,  # (512, 16, 14, 14)
+            self.Mixed_4d,  # (512, 16, 14, 14)
+            self.Mixed_4e,  # (528, 16, 14, 14)
+            self.Mixed_4f)  # (832, 16, 14, 14)
 
         # ------------------- Block 5 -------------------
         self.MaxPool_5a = nn.MaxPool3d(kernel_size=(2, 2, 2), stride=(2, 2, 2), padding=(0, 0, 0))
@@ -164,8 +168,8 @@ class Inception3D(nn.Module):
 
         self.block5 = nn.Sequential(
             self.MaxPool_5a,  # (832, 8, 7, 7)
-            self.Mixed_5b,    # (832, 8, 7, 7)
-            self.Mixed_5c)    # (1024, 8, 7, 7)
+            self.Mixed_5b,  # (832, 8, 7, 7)
+            self.Mixed_5c)  # (1024, 8, 7, 7)
 
     def forward(self, x):
         if isinstance(x, dict):
@@ -175,13 +179,15 @@ class Inception3D(nn.Module):
         x = self.block3(x)
         x = self.block4(x)
         x = self.block5(x)
-        return x 
+        return x
+
 
 @BACKBONE_REGISTRY.register()
 class SimpleLocalizationConv(nn.Module):
     """
     Backbone architecture for temporal action localization, which only contains three simple convs.
     """
+
     def __init__(self, cfg):
         super(SimpleLocalizationConv, self).__init__()
         _input_channel = cfg.DATA.NUM_INPUT_CHANNELS
@@ -194,21 +200,20 @@ class SimpleLocalizationConv(nn.Module):
         )
 
     def _construct_backbone(
-        self, 
-        cfg,
-        input_channel
+            self,
+            cfg,
+            input_channel
     ):
         self.conv_list = [
             nn.Conv1d(input_channel, self.hidden_dim_1d, kernel_size=3, padding=1, groups=self.groups_num),
             nn.ReLU(inplace=True)]
         assert self.layer_num >= 1
-        for ln in range(self.layer_num-1):
-            self.conv_list.append(nn.Conv1d(self.hidden_dim_1d, 
+        for ln in range(self.layer_num - 1):
+            self.conv_list.append(nn.Conv1d(self.hidden_dim_1d,
                                             self.hidden_dim_1d,
                                             kernel_size=3, padding=1, groups=self.groups_num))
             self.conv_list.append(nn.ReLU(inplace=True))
         self.conv_layer = nn.Sequential(*self.conv_list)
-
 
     def forward(self, x):
         x['video'] = self.conv_layer(x['video'])

@@ -15,10 +15,12 @@ from models.base.base_blocks import (
 
 from models.utils.init_helper import lecun_normal_, trunc_normal_, _init_transformer_weights
 
+
 class GEGLU(nn.Module):
     def forward(self, x):
-        x, gates = x.chunk(2, dim = -1)
+        x, gates = x.chunk(2, dim=-1)
         return x * F.gelu(gates)
+
 
 class FeedForward(nn.Module):
     def __init__(self, dim, mult=4, ff_dropout=0.):
@@ -33,6 +35,7 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.net(x)
+
 
 class Attention(nn.Module):
     """
@@ -49,25 +52,26 @@ class Attention(nn.Module):
     Modified from 
     https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py
     """
+
     def __init__(
-        self,
-        dim,
-        num_heads=12,
-        attn_dropout=0.,
-        ff_dropout=0.,
-        einops_from=None,
-        einops_to=None,
-        **einops_dims,
+            self,
+            dim,
+            num_heads=12,
+            attn_dropout=0.,
+            ff_dropout=0.,
+            einops_from=None,
+            einops_to=None,
+            **einops_dims,
     ):
         super().__init__()
         self.num_heads = num_heads
         dim_head = dim // num_heads
         self.scale = dim_head ** -0.5
 
-        self.to_qkv         = nn.Linear(dim, dim * 3)
-        self.attn_dropout   = nn.Dropout(attn_dropout)
-        self.proj           = nn.Linear(dim, dim)
-        self.ff_dropout     = nn.Dropout(ff_dropout)
+        self.to_qkv = nn.Linear(dim, dim * 3)
+        self.attn_dropout = nn.Dropout(attn_dropout)
+        self.proj = nn.Linear(dim, dim)
+        self.ff_dropout = nn.Dropout(ff_dropout)
 
         if einops_from is not None and einops_to is not None:
             self.partial = True
@@ -87,7 +91,7 @@ class Attention(nn.Module):
             )
         B, N, C = x.shape
         qkv = self.to_qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
         attn = (q @ k.transpose(-2, -1)) * self.scale
         attn = attn.softmax(dim=-1)
@@ -100,8 +104,8 @@ class Attention(nn.Module):
 
     def forward_partial(self, x, einops_from, einops_to, **einops_dims):
         h = self.num_heads
-        q, k, v = self.to_qkv(x).chunk(3, dim = -1)
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h = h), (q, k, v))
+        q, k, v = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
 
         q *= self.scale
 
@@ -109,7 +113,7 @@ class Attention(nn.Module):
         (cls_q, q_), (cls_k, k_), (cls_v, v_) = map(lambda t: (t[:, 0:1], t[:, 1:]), (q, k, v))
 
         # let classification token attend to key / values of all patches across time and space
-        cls_attn = (cls_q @ k.transpose(1,2)).softmax(-1)
+        cls_attn = (cls_q @ k.transpose(1, 2)).softmax(-1)
         cls_attn = self.attn_dropout(cls_attn)
         cls_out = cls_attn @ v
 
@@ -118,10 +122,10 @@ class Attention(nn.Module):
 
         # expand cls token keys and values across time or space and concat
         r = q_.shape[0] // cls_k.shape[0]
-        cls_k, cls_v = map(lambda t: repeat(t, 'b () d -> (b r) () d', r = r), (cls_k, cls_v))
+        cls_k, cls_v = map(lambda t: repeat(t, 'b () d -> (b r) () d', r=r), (cls_k, cls_v))
 
-        k_ = torch.cat((cls_k, k_), dim = 1)
-        v_ = torch.cat((cls_v, v_), dim = 1)
+        k_ = torch.cat((cls_k, k_), dim=1)
+        v_ = torch.cat((cls_v, v_), dim=1)
 
         # attention
         attn = (q_ @ k_.transpose(1, 2)).softmax(-1)
@@ -132,15 +136,16 @@ class Attention(nn.Module):
         x = rearrange(x, f'{einops_to} -> {einops_from}', **einops_dims)
 
         # concat back the cls token
-        x = torch.cat((cls_out, x), dim = 1)
+        x = torch.cat((cls_out, x), dim=1)
 
         # merge back the heads
-        x = rearrange(x, '(b h) n d -> b n (h d)', h = h)
+        x = rearrange(x, '(b h) n d -> b n (h d)', h=h)
 
         # combine heads out
         x = self.proj(x)
         x = self.ff_dropout(x)
         return x
+
 
 @BRANCH_REGISTRY.register()
 class BaseTransformerLayer(nn.Module):
@@ -153,12 +158,12 @@ class BaseTransformerLayer(nn.Module):
         """
         super().__init__()
 
-        dim             = cfg.VIDEO.BACKBONE.NUM_FEATURES   if cfg is not None else 768 # default 768
-        num_heads       = cfg.VIDEO.BACKBONE.NUM_HEADS      if cfg is not None else 1  # default 12
-        attn_dropout    = cfg.VIDEO.BACKBONE.ATTN_DROPOUT   if cfg is not None else 0.1 # default 0.1
-        ff_dropout      = cfg.VIDEO.BACKBONE.FF_DROPOUT     if cfg is not None else 0.1 # default 0.1
-        mlp_mult        = cfg.VIDEO.BACKBONE.MLP_MULT       if cfg is not None else 4
-        drop_path       = drop_path_rate
+        dim = cfg.VIDEO.BACKBONE.NUM_FEATURES if cfg is not None else 768  # default 768
+        num_heads = cfg.VIDEO.BACKBONE.NUM_HEADS if cfg is not None else 1  # default 12
+        attn_dropout = cfg.VIDEO.BACKBONE.ATTN_DROPOUT if cfg is not None else 0.1  # default 0.1
+        ff_dropout = cfg.VIDEO.BACKBONE.FF_DROPOUT if cfg is not None else 0.1  # default 0.1
+        mlp_mult = cfg.VIDEO.BACKBONE.MLP_MULT if cfg is not None else 4
+        drop_path = drop_path_rate
 
         self.norm = nn.LayerNorm(dim, eps=1e-6)
         self.attn = Attention(
@@ -174,6 +179,7 @@ class BaseTransformerLayer(nn.Module):
         x = x + self.drop_path(self.ffn(self.norm_ffn(x)))
         return x
 
+
 @BRANCH_REGISTRY.register()
 class TimesformerLayer(nn.Module):
     def __init__(self, cfg, drop_path_rate=0.0):
@@ -185,27 +191,27 @@ class TimesformerLayer(nn.Module):
         """
         super().__init__()
 
-        image_size      = cfg.DATA.TRAIN_CROP_SIZE          if cfg is not None else 224 # default 224
-        num_frames      = cfg.DATA.NUM_INPUT_FRAMES         if cfg is not None else 8   # default 8
+        image_size = cfg.DATA.TRAIN_CROP_SIZE if cfg is not None else 224  # default 224
+        num_frames = cfg.DATA.NUM_INPUT_FRAMES if cfg is not None else 8  # default 8
 
-        dim             = cfg.VIDEO.BACKBONE.NUM_FEATURES   if cfg is not None else 768 # default 768
-        num_heads       = cfg.VIDEO.BACKBONE.NUM_HEADS      if cfg is not None else 1  # default 12
-        attn_dropout    = cfg.VIDEO.BACKBONE.ATTN_DROPOUT   if cfg is not None else 0.1 # default 0.1
-        ff_dropout      = cfg.VIDEO.BACKBONE.FF_DROPOUT     if cfg is not None else 0.1 # default 0.1
-        patch_size      = cfg.VIDEO.BACKBONE.PATCH_SIZE     if cfg is not None else 16  # default 16
-        drop_path       = drop_path_rate
-        
+        dim = cfg.VIDEO.BACKBONE.NUM_FEATURES if cfg is not None else 768  # default 768
+        num_heads = cfg.VIDEO.BACKBONE.NUM_HEADS if cfg is not None else 1  # default 12
+        attn_dropout = cfg.VIDEO.BACKBONE.ATTN_DROPOUT if cfg is not None else 0.1  # default 0.1
+        ff_dropout = cfg.VIDEO.BACKBONE.FF_DROPOUT if cfg is not None else 0.1  # default 0.1
+        patch_size = cfg.VIDEO.BACKBONE.PATCH_SIZE if cfg is not None else 16  # default 16
+        drop_path = drop_path_rate
+
         num_patches = (image_size // patch_size) ** 2
 
         self.norm_temporal = nn.LayerNorm(dim, eps=1e-6)
         self.attn_temporal = Attention(
             dim, num_heads=num_heads, attn_dropout=attn_dropout, ff_dropout=ff_dropout,
-            einops_from='b (f n) d', einops_to='(b n) f d', n = num_patches
+            einops_from='b (f n) d', einops_to='(b n) f d', n=num_patches
         )
         self.norm = nn.LayerNorm(dim, eps=1e-6)
         self.attn = Attention(
             dim, num_heads=num_heads, attn_dropout=attn_dropout, ff_dropout=ff_dropout,
-            einops_from='b (f n) d', einops_to='(b f) n d', f = num_frames
+            einops_from='b (f n) d', einops_to='(b f) n d', f=num_frames
         )
         self.norm_ffn = nn.LayerNorm(dim, eps=1e-6)
         self.ffn = FeedForward(dim=dim, ff_dropout=ff_dropout)
@@ -218,11 +224,12 @@ class TimesformerLayer(nn.Module):
         x = x + self.drop_path(self.ffn(self.norm_ffn(x)))
         return x
 
+
 @BACKBONE_REGISTRY.register()
 class Transformer(nn.Module):
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
     ):
         """
         Args: 
@@ -230,14 +237,14 @@ class Transformer(nn.Module):
         """
         super().__init__()
 
-        num_frames      = cfg.DATA.NUM_INPUT_FRAMES         if cfg is not None else 8   # default 8
-        image_size      = cfg.DATA.TRAIN_CROP_SIZE          if cfg is not None else 224 # default 224
-        num_features    = cfg.VIDEO.BACKBONE.NUM_FEATURES         if cfg is not None else 768 # default 768
-        patch_size      = cfg.VIDEO.BACKBONE.PATCH_SIZE           if cfg is not None else 16  # default 16
-        depth           = cfg.VIDEO.BACKBONE.DEPTH                if cfg is not None else 12  # default 12
-        drop_path       = cfg.VIDEO.BACKBONE.DROP_PATH            if cfg is not None else 16  # default 16
+        num_frames = cfg.DATA.NUM_INPUT_FRAMES if cfg is not None else 8  # default 8
+        image_size = cfg.DATA.TRAIN_CROP_SIZE if cfg is not None else 224  # default 224
+        num_features = cfg.VIDEO.BACKBONE.NUM_FEATURES if cfg is not None else 768  # default 768
+        patch_size = cfg.VIDEO.BACKBONE.PATCH_SIZE if cfg is not None else 16  # default 16
+        depth = cfg.VIDEO.BACKBONE.DEPTH if cfg is not None else 12  # default 12
+        drop_path = cfg.VIDEO.BACKBONE.DROP_PATH if cfg is not None else 16  # default 16
         if hasattr(cfg.VIDEO.BACKBONE, "TUBELET_SIZE"):
-            tubelet_size = cfg.VIDEO.BACKBONE.TUBELET_SIZE         if cfg is not None else 2
+            tubelet_size = cfg.VIDEO.BACKBONE.TUBELET_SIZE if cfg is not None else 2
         else:
             tubelet_size = 1
 
@@ -271,8 +278,8 @@ class Transformer(nn.Module):
 
         x = self.stem(x)
 
-        cls_token = self.cls_token.repeat((x.shape[0],1,1))
-        x =  torch.cat((cls_token, x), dim = 1)
+        cls_token = self.cls_token.repeat((x.shape[0], 1, 1))
+        x = torch.cat((cls_token, x), dim=1)
 
         x += self.pos_embd
 
@@ -280,6 +287,7 @@ class Transformer(nn.Module):
         x = self.norm(x)
 
         return x[:, 0]
+
 
 @BACKBONE_REGISTRY.register()
 class FactorizedTransformer(nn.Module):
@@ -289,9 +297,10 @@ class FactorizedTransformer(nn.Module):
     See Anurag Arnab et al.
     ViVIT: A Video Vision Transformer. 
     """
+
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
     ):
         """
         Args: 
@@ -299,16 +308,15 @@ class FactorizedTransformer(nn.Module):
         """
         super().__init__()
 
-
-        num_frames      = cfg.DATA.NUM_INPUT_FRAMES         if cfg is not None else 8   # default 8
-        image_size      = cfg.DATA.TRAIN_CROP_SIZE          if cfg is not None else 224 # default 224
-        num_features    = cfg.VIDEO.BACKBONE.NUM_FEATURES         if cfg is not None else 768 # default 768
-        patch_size      = cfg.VIDEO.BACKBONE.PATCH_SIZE           if cfg is not None else 16  # default 16
-        depth           = cfg.VIDEO.BACKBONE.DEPTH                if cfg is not None else 12  # default 12
-        depth_temp      = cfg.VIDEO.BACKBONE.DEPTH_TEMP           if cfg is not None else 4   # default 4
-        drop_path       = cfg.VIDEO.BACKBONE.DROP_PATH            if cfg is not None else 16  # default 16
+        num_frames = cfg.DATA.NUM_INPUT_FRAMES if cfg is not None else 8  # default 8
+        image_size = cfg.DATA.TRAIN_CROP_SIZE if cfg is not None else 224  # default 224
+        num_features = cfg.VIDEO.BACKBONE.NUM_FEATURES if cfg is not None else 768  # default 768
+        patch_size = cfg.VIDEO.BACKBONE.PATCH_SIZE if cfg is not None else 16  # default 16
+        depth = cfg.VIDEO.BACKBONE.DEPTH if cfg is not None else 12  # default 12
+        depth_temp = cfg.VIDEO.BACKBONE.DEPTH_TEMP if cfg is not None else 4  # default 4
+        drop_path = cfg.VIDEO.BACKBONE.DROP_PATH if cfg is not None else 16  # default 16
         if hasattr(cfg.VIDEO.BACKBONE, "TUBELET_SIZE"):
-            tubelet_size = cfg.VIDEO.BACKBONE.TUBELET_SIZE         if cfg is not None else 2
+            tubelet_size = cfg.VIDEO.BACKBONE.TUBELET_SIZE if cfg is not None else 2
         else:
             tubelet_size = 1
 
@@ -323,13 +331,13 @@ class FactorizedTransformer(nn.Module):
 
         # both spatial and temporal embeddings/cls_token needs to be constructed
         # for the factorized transformer video model 
-        self.pos_embd           = nn.Parameter(torch.zeros(1, self.num_patches_per_frame + 1, num_features))
-        self.temp_embd          = nn.Parameter(torch.zeros(1, num_frames // tubelet_size + 1, num_features))
-        self.cls_token          = nn.Parameter(torch.randn(1, 1, num_features))
+        self.pos_embd = nn.Parameter(torch.zeros(1, self.num_patches_per_frame + 1, num_features))
+        self.temp_embd = nn.Parameter(torch.zeros(1, num_frames // tubelet_size + 1, num_features))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, num_features))
         self.cls_token_out = nn.Parameter(torch.randn(1, 1, num_features))
 
         # construct spatial transformer layers
-        dpr = [x.item() for x in torch.linspace(0, drop_path, depth+depth_temp)]  # stochastic depth decay rule
+        dpr = [x.item() for x in torch.linspace(0, drop_path, depth + depth_temp)]  # stochastic depth decay rule
         self.layers = nn.Sequential(*[
             BRANCH_REGISTRY.get(cfg.VIDEO.BACKBONE.BRANCH.NAME)(cfg, drop_path_rate=dpr[i])
             for i in range(depth)])
@@ -338,7 +346,7 @@ class FactorizedTransformer(nn.Module):
 
         # construct temporal transformer layers
         self.layers_temporal = nn.Sequential(*[
-            BRANCH_REGISTRY.get(cfg.VIDEO.BACKBONE.BRANCH.NAME)(cfg, drop_path_rate=dpr[i+depth])
+            BRANCH_REGISTRY.get(cfg.VIDEO.BACKBONE.BRANCH.NAME)(cfg, drop_path_rate=dpr[i + depth])
             for i in range(depth_temp)])
 
         self.norm_out = nn.LayerNorm(num_features, eps=1e-6)
@@ -359,25 +367,26 @@ class FactorizedTransformer(nn.Module):
         actual_num_patches_per_frame = (h // self.patch_size) * (w // self.patch_size)
         x = self.stem(x)
         if actual_num_patches_per_frame != self.num_patches_per_frame:
-            assert not self.training 
+            assert not self.training
             x = rearrange(x, "b (t n) c -> (b t) n c", n=actual_num_patches_per_frame)
         else:
             x = rearrange(x, "b (t n) c -> (b t) n c", n=self.num_patches_per_frame)
 
-        cls_token = self.cls_token.repeat((x.shape[0],1,1))
-        x = torch.cat((cls_token, x), dim = 1)
+        cls_token = self.cls_token.repeat((x.shape[0], 1, 1))
+        x = torch.cat((cls_token, x), dim=1)
 
         # to make the input video size changable
         if actual_num_patches_per_frame != self.num_patches_per_frame:
             actual_num_pathces_per_side = int(math.sqrt(actual_num_patches_per_frame))
-            if not hasattr(self, "new_pos_embd") or self.new_pos_embd.shape[1] != (actual_num_pathces_per_side**2+1):
-                cls_pos_embd = self.pos_embd[:,0,:].unsqueeze(1)
+            if not hasattr(self, "new_pos_embd") or self.new_pos_embd.shape[1] != (
+                    actual_num_pathces_per_side ** 2 + 1):
+                cls_pos_embd = self.pos_embd[:, 0, :].unsqueeze(1)
                 pos_embd = self.pos_embd[:, 1:, :]
                 num_patches_per_side = int(math.sqrt(self.num_patches_per_frame))
-                pos_embd = pos_embd.reshape(1, num_patches_per_side, num_patches_per_side, -1).permute(0,3,1,2)
+                pos_embd = pos_embd.reshape(1, num_patches_per_side, num_patches_per_side, -1).permute(0, 3, 1, 2)
                 pos_embd = torch.nn.functional.interpolate(
-                    pos_embd, size=(actual_num_pathces_per_side,actual_num_pathces_per_side), mode="bilinear"
-                ).permute(0,2,3,1).reshape(1, actual_num_pathces_per_side**2, -1)
+                    pos_embd, size=(actual_num_pathces_per_side, actual_num_pathces_per_side), mode="bilinear"
+                ).permute(0, 2, 3, 1).reshape(1, actual_num_pathces_per_side ** 2, -1)
                 self.new_pos_embd = torch.cat((cls_pos_embd, pos_embd), dim=1)
             x += self.new_pos_embd
         else:
@@ -386,7 +395,7 @@ class FactorizedTransformer(nn.Module):
         x = self.layers(x)
         x = self.norm(x)[:, 0]
 
-        x = rearrange(x, "(b t) c -> b t c", t=self.num_patches//self.num_patches_per_frame)
+        x = rearrange(x, "(b t) c -> b t c", t=self.num_patches // self.num_patches_per_frame)
 
         cls_token_out = self.cls_token_out.repeat((x.shape[0], 1, 1))
         x = torch.cat((cls_token_out, x), dim=1)
