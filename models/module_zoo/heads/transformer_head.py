@@ -12,11 +12,13 @@ from models.base.base_blocks import HEAD_REGISTRY
 from collections import OrderedDict
 from models.utils.init_helper import lecun_normal_, trunc_normal_, _init_transformer_weights
 
+
 @HEAD_REGISTRY.register()
 class TransformerHead(BaseHead):
     """
     Construct head for video vision transformers.
     """
+
     def __init__(self, cfg):
         """
         Args: 
@@ -24,23 +26,23 @@ class TransformerHead(BaseHead):
         """
         super(TransformerHead, self).__init__(cfg)
         self.apply(_init_transformer_weights)
-    
+
     def _construct_head(
-        self,
-        dim,
-        num_classes,
-        dropout_rate,
-        activation_func,
+            self,
+            dim,
+            num_classes,
+            dropout_rate,
+            activation_func,
     ):
         if self.cfg.VIDEO.HEAD.PRE_LOGITS:
             self.pre_logits = nn.Sequential(OrderedDict([
                 ('fc', nn.Linear(dim, dim)),
                 ('act', nn.Tanh())
             ]))
-        
+
         self.linear = nn.Linear(dim, num_classes)
 
-        if dropout_rate > 0.0: 
+        if dropout_rate > 0.0:
             self.dropout = nn.Dropout(dropout_rate)
 
         if activation_func == "softmax":
@@ -51,10 +53,10 @@ class TransformerHead(BaseHead):
             self.activation = nn.Identity()
         else:
             raise NotImplementedError(
-            "{} is not supported as an activation"
-            "function.".format(activation_func)
+                "{} is not supported as an activation"
+                "function.".format(activation_func)
             )
-    
+
     def forward(self, x):
         """
         Returns:
@@ -73,11 +75,13 @@ class TransformerHead(BaseHead):
             out = self.activation(out)
         return out, x
 
+
 @HEAD_REGISTRY.register()
 class TransformerHeadx2(BaseHead):
     """
     The Transformer head for EPIC-KITCHENS dataset.
     """
+
     def __init__(self, cfg):
         """
         Args: 
@@ -85,13 +89,13 @@ class TransformerHeadx2(BaseHead):
         """
         super(TransformerHeadx2, self).__init__(cfg)
         self.apply(_init_transformer_weights)
-    
+
     def _construct_head(
-        self,
-        dim,
-        num_classes,
-        dropout_rate,
-        activation_func,
+            self,
+            dim,
+            num_classes,
+            dropout_rate,
+            activation_func,
     ):
         if self.cfg.VIDEO.HEAD.PRE_LOGITS:
             self.pre_logits1 = nn.Sequential(OrderedDict([
@@ -105,7 +109,7 @@ class TransformerHeadx2(BaseHead):
         self.linear1 = nn.Linear(dim, num_classes[0], bias=True)
         self.linear2 = nn.Linear(dim, num_classes[1], bias=True)
 
-        if dropout_rate > 0.0: 
+        if dropout_rate > 0.0:
             self.dropout = nn.Dropout(dropout_rate)
 
         if activation_func == "softmax":
@@ -116,10 +120,10 @@ class TransformerHeadx2(BaseHead):
             self.activation = nn.Identity()
         else:
             raise NotImplementedError(
-            "{} is not supported as an activation"
-            "function.".format(activation_func)
+                "{} is not supported as an activation"
+                "function.".format(activation_func)
             )
-    
+
     def forward(self, x):
         """
         Returns:

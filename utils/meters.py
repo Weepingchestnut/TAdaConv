@@ -21,6 +21,7 @@ import utils.distributed as du
 
 logger = logging.get_logger(__name__)
 
+
 class TestMeter(object):
     """
     Perform the multi-view ensemble for testing: each video with an unique index
@@ -30,13 +31,13 @@ class TestMeter(object):
     """
 
     def __init__(
-        self,
-        cfg,
-        num_videos,
-        num_clips,
-        num_cls,
-        overall_iters,
-        ensemble_method="sum",
+            self,
+            cfg,
+            num_videos,
+            num_clips,
+            num_cls,
+            overall_iters,
+            ensemble_method="sum",
     ):
         """
         Construct tensors to store the predictions and labels. Expect to get
@@ -65,7 +66,7 @@ class TestMeter(object):
             torch.zeros((num_videos)).long()
         )
         self.clip_count = torch.zeros((num_videos)).long()
-        self.clip_indices = torch.linspace(0, num_videos-1, num_videos).long()
+        self.clip_indices = torch.linspace(0, num_videos - 1, num_videos).long()
         self.model_ema_enabled = False
         # Reset metric.
         self.reset()
@@ -150,7 +151,8 @@ class TestMeter(object):
                         [
                             # "{}: {}".format(i, k)
                             # for i, k in enumerate(self.clip_count.tolist())
-                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in enumerate(self.clip_indices[self.clip_count!=self.num_clips].tolist())
+                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in
+                            enumerate(self.clip_indices[self.clip_count != self.num_clips].tolist())
                         ]
                     ),
                     self.num_clips,
@@ -171,9 +173,10 @@ class TestMeter(object):
                 topk, prec=2
             )
         logging.log_json_stats(stats)
-    
+
     def set_model_ema_enabled(self, model_ema_enabled):
         self.model_ema_enabled = model_ema_enabled
+
 
 class EpicKitchenMeter(object):
     """
@@ -188,13 +191,13 @@ class EpicKitchenMeter(object):
     """
 
     def __init__(
-        self,
-        cfg,
-        num_videos,
-        num_clips,
-        num_cls,
-        overall_iters,
-        ensemble_method="sum",
+            self,
+            cfg,
+            num_videos,
+            num_clips,
+            num_cls,
+            overall_iters,
+            ensemble_method="sum",
     ):
         """
         Construct tensors to store the predictions and labels. Expect to get
@@ -220,13 +223,13 @@ class EpicKitchenMeter(object):
         self.ensemble_method = ensemble_method
 
         assert self.ensemble_method in ["sum", "max"], f"Ensemble Method {ensemble_method} is not supported"
-        
+
         if cfg.DATA.MULTI_LABEL or not hasattr(cfg.DATA, "TRAIN_VERSION"):
             # Initialize tensors.
             self.video_preds = {
                 "verb_class": torch.zeros((num_videos, self.num_clips, num_cls[0])),
                 "noun_class": torch.zeros((num_videos, self.num_clips, num_cls[1])),
-                "action_class_ind_pred": torch.zeros((num_videos, self.num_clips, num_cls[0]*num_cls[1]))
+                "action_class_ind_pred": torch.zeros((num_videos, self.num_clips, num_cls[0] * num_cls[1]))
             }
 
             self.video_labels = {
@@ -241,10 +244,11 @@ class EpicKitchenMeter(object):
             self.video_labels = torch.zeros((num_videos))
             self.update_stats = self.update_stats_separate_label
             self.finalize_metrics = self.finalize_metrics_separate_label
-        else: raise NotImplementedError
+        else:
+            raise NotImplementedError
         self.video_names = {i: "" for i in range(num_videos)}
         self.clip_count = torch.zeros((num_videos)).long()
-        self.clip_indices = torch.linspace(0, num_videos-1, num_videos).long()
+        self.clip_indices = torch.linspace(0, num_videos - 1, num_videos).long()
         # Reset metric.
         self.reset()
 
@@ -330,11 +334,13 @@ class EpicKitchenMeter(object):
 
             self.video_labels["verb_class"][vid_id] = labels_verb[ind]
             self.video_labels["noun_class"][vid_id] = labels_noun[ind]
-            self.video_labels["action_class_ind_pred"][vid_id] = labels_verb[ind] * preds_noun.shape[1] + labels_noun[ind]
+            self.video_labels["action_class_ind_pred"][vid_id] = labels_verb[ind] * preds_noun.shape[1] + labels_noun[
+                ind]
 
             self.video_preds["verb_class"][vid_id][view_id] = preds_verb[ind]
             self.video_preds["noun_class"][vid_id][view_id] = preds_noun[ind]
-            self.video_preds["action_class_ind_pred"][vid_id][view_id] = (preds_verb[ind].unsqueeze(-1) * preds_noun[ind].unsqueeze(-2)).reshape(-1)
+            self.video_preds["action_class_ind_pred"][vid_id][view_id] = (
+                        preds_verb[ind].unsqueeze(-1) * preds_noun[ind].unsqueeze(-2)).reshape(-1)
 
             self.clip_count[vid_id] += 1
 
@@ -376,7 +382,8 @@ class EpicKitchenMeter(object):
                         [
                             # "{}: {}".format(i, k)
                             # for i, k in enumerate(self.clip_count.tolist())
-                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in enumerate(self.clip_indices[self.clip_count!=self.num_clips].tolist())
+                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in
+                            enumerate(self.clip_indices[self.clip_count != self.num_clips].tolist())
                         ]
                     ),
                     self.num_clips,
@@ -397,7 +404,7 @@ class EpicKitchenMeter(object):
             video_preds, self.video_labels, ks
         )
         for name, v in num_topks_correct.items():
-            topks = [ (x / b) * 100.0 for x in v ]
+            topks = [(x / b) * 100.0 for x in v]
             assert len({len(ks), len(topks)}) == 1
             for k, topk in zip(ks, topks):
                 stats["top_{}_acc_{}".format(name, k)] = "{:.{prec}f}".format(
@@ -417,7 +424,8 @@ class EpicKitchenMeter(object):
                 "clip count {} ~= num clips {}".format(
                     ", ".join(
                         [
-                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in enumerate(self.clip_indices[self.clip_count!=self.num_clips].tolist())
+                            "{}: {}".format(ind, self.clip_count[ind]) for idx, ind in
+                            enumerate(self.clip_indices[self.clip_count != self.num_clips].tolist())
                         ]
                     ),
                     self.num_clips,
@@ -466,6 +474,7 @@ class EpicKitchenMeter(object):
             video_preds["noun_class"] = self.video_preds["noun_class"].max(1)[0]
             video_preds["action_class_ind_pred"] = self.video_preds["action_class_ind_pred"].max(1)[0]
         return video_preds
+
 
 class ScalarMeter(object):
     """
@@ -558,7 +567,6 @@ class TrainMeter(object):
         self.num_top5_mis = 0
         self.num_samples = 0
         self.opts = defaultdict(ScalarMeter)
-        
 
     def iter_tic(self):
         """
@@ -587,7 +595,7 @@ class TrainMeter(object):
         self.loss_total += loss * mb_size
         self.num_samples += mb_size
 
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
             assert isinstance(v, (float, int))
@@ -600,13 +608,14 @@ class TrainMeter(object):
             # Aggregate stats
             self.num_top1_mis += top1_err * mb_size
             self.num_top5_mis += top5_err * mb_size
+
     def update_custom_stats(self, stats):
         """
         Update stats using custom keys.
         Args:
             stats (dict): additional stats to be updated.
         """
-        for k,v in stats.items():
+        for k, v in stats.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
             assert isinstance(v, (float, int))
@@ -622,7 +631,7 @@ class TrainMeter(object):
         if (cur_iter + 1) % self._cfg.LOG_PERIOD != 0:
             return
         eta_sec = self.iter_timer.seconds() * (
-            self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
+                self.MAX_EPOCH - (cur_epoch * self.epoch_iters + cur_iter + 1)
         )
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
         stats = {
@@ -635,7 +644,7 @@ class TrainMeter(object):
             "lr": self.lr,
             # "gpu_mem": "{:.2f} GB".format(misc.gpu_mem_usage()),
         }
-        for k,v in self.opts.items():
+        for k, v in self.opts.items():
             stats[k] = v.get_win_median()
         if not self._cfg.PRETRAIN.ENABLE and not self._cfg.LOCALIZATION.ENABLE:
             stats["top1_err"] = self.mb_top1_err.get_win_median()
@@ -649,7 +658,7 @@ class TrainMeter(object):
             cur_epoch (int): the number of current epoch.
         """
         eta_sec = self.iter_timer.seconds() * (
-            self.MAX_EPOCH - (cur_epoch + 1) * self.epoch_iters
+                self.MAX_EPOCH - (cur_epoch + 1) * self.epoch_iters
         )
         eta = str(datetime.timedelta(seconds=int(eta_sec)))
         stats = {
@@ -661,7 +670,7 @@ class TrainMeter(object):
             "gpu_mem": "{:.2f} GB".format(misc.gpu_mem_usage()),
             "RAM": "{:.2f}/{:.2f} GB".format(*misc.cpu_mem_usage()),
         }
-        for k,v in self.opts.items():
+        for k, v in self.opts.items():
             stats[k] = v.get_global_avg()
         if not self._cfg.PRETRAIN.ENABLE:
             top1_err = self.num_top1_mis / self.num_samples
@@ -736,7 +745,7 @@ class ValMeter(object):
             top5_err (float): top5 error rate.
             mb_size (int): mini batch size.
         """
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
             self.opts[k].add_value(v)
@@ -745,19 +754,19 @@ class ValMeter(object):
         self.num_top1_mis += top1_err * mb_size
         self.num_top5_mis += top5_err * mb_size
         self.num_samples += mb_size
-    
+
     def update_custom_stats(self, stats):
         """
         Update stats using custom keys.
         Args:
             stats (dict): additional stats to be updated.
         """
-        for k,v in stats.items():
+        for k, v in stats.items():
             if isinstance(v, torch.Tensor):
                 v = v.item()
             assert isinstance(v, (float, int))
             self.opts[k].add_value(v)
-    
+
     def update_predictions(self, preds, labels):
         """
         Update predictions and labels.
@@ -788,7 +797,7 @@ class ValMeter(object):
             "eta": eta,
             "gpu_mem": "{:.2f} GB".format(misc.gpu_mem_usage()),
         }
-        for k,v in self.opts.items():
+        for k, v in self.opts.items():
             stats[k] = v.get_win_median()
         stats["top1_err"] = self.mb_top1_err.get_win_median()
         stats["top5_err"] = self.mb_top5_err.get_win_median()
@@ -807,7 +816,7 @@ class ValMeter(object):
             "gpu_mem": "{:.2f} GB".format(misc.gpu_mem_usage()),
             "RAM": "{:.2f}/{:.2f} GB".format(*misc.cpu_mem_usage()),
         }
-        for k,v in self.opts.items():
+        for k, v in self.opts.items():
             if "top1_err" in k or "top5_err" in k:
                 stats[k] = v.get_win_median()
             else:
@@ -823,6 +832,6 @@ class ValMeter(object):
         stats["min_top5_err"] = self.min_top5_err
 
         logging.log_json_stats(stats)
-    
+
     def set_model_ema_enabled(self, model_ema_enabled):
         self.model_ema_enabled = model_ema_enabled

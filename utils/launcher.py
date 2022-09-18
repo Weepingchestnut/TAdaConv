@@ -6,6 +6,7 @@ import os
 import torch
 from utils.misc import get_num_gpus
 
+
 def launch_task(cfg, init_method, func):
     """
     Launches the task "func" on one or multiple devices.
@@ -35,8 +36,9 @@ def launch_task(cfg, init_method, func):
     else:
         func(cfg=cfg)
 
+
 def run(
-    local_rank, func, init_method, cfg
+        local_rank, func, init_method, cfg
 ):
     """
     Runs a function from a child process.
@@ -47,13 +49,13 @@ def run(
         cfg (Config): global config object.
     """
 
-    num_proc    = cfg.NUM_GPUS      # number of nodes per machine
-    shard_id    = cfg.SHARD_ID
-    num_shards  = cfg.NUM_SHARDS    # number of machines
-    backend     = cfg.DIST_BACKEND  # distribued backends ('nccl', 'gloo' or 'mpi')
+    num_proc = cfg.NUM_GPUS  # number of nodes per machine
+    shard_id = cfg.SHARD_ID
+    num_shards = cfg.NUM_SHARDS  # number of machines
+    backend = cfg.DIST_BACKEND  # distribued backends ('nccl', 'gloo' or 'mpi')
 
-    world_size  = num_proc * num_shards
-    rank        = shard_id * num_proc + local_rank
+    world_size = num_proc * num_shards
+    rank = shard_id * num_proc + local_rank
     cfg.LOCAL_RANK = rank
 
     # dump machine info
@@ -79,7 +81,7 @@ def run(
             )
     except Exception as e:
         raise e
-    
+
     if "VISIBLE_DEVICE_LIST" in os.environ:
         torch.cuda.set_device(int(os.environ["VISIBLE_DEVICE_LIST"]))
     else:

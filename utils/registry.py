@@ -3,6 +3,7 @@
 
 """ Registry class. """
 
+
 class Registry(object):
     """
     The Registry class provides a registry for all things
@@ -24,7 +25,6 @@ class Registry(object):
         self._entry_map = {}
         self.table_name = table_name
 
-
     def _register(self, name, entry):
         """
         Registers the instance.
@@ -37,17 +37,19 @@ class Registry(object):
             self.table_name, name
         )
         self._entry_map[name] = entry
-    
+
     def register(self):
         """
         Wrapper function for registering a module.
         """
+
         def reg(obj):
             name = obj.__name__
             self._register(name, obj)
             return obj
+
         return reg
-    
+
     def get(self, name):
         """
         Returns the instance specified by the name. 
@@ -58,7 +60,7 @@ class Registry(object):
             return None
         obj = self._entry_map.get(name)
         return obj
-    
+
     def get_all_registered(self):
         """
         Prints all registered class. 

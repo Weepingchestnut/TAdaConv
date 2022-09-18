@@ -10,6 +10,7 @@ from utils import logging
 
 logger = logging.get_logger(__name__)
 
+
 def initialize_bucket(key, secret, endpoint, bucket, retries=10):
     """
     Wrapper for bucket initialization, with specified key, secret, endpoint, and bucket name.
@@ -31,8 +32,9 @@ def initialize_bucket(key, secret, endpoint, bucket, retries=10):
             return data_bucket
         except:
             logger.info("OSS bucket [{}] initialization failed. Retrying... {}".format(bucket, retry))
-    
+
     raise ValueError("OSS initialization failed. Please check your OSS connection.")
+
 
 def read_from_buffer(bucket, oss_file, bucket_name, retries=10):
     """
@@ -51,17 +53,18 @@ def read_from_buffer(bucket, oss_file, bucket_name, retries=10):
         try:
             buf = io.BytesIO(bucket.get_object(oss_file.split(bucket_name)[-1][1:]).read())
             return buf
-        except: 
-            if retry < retries-1:
+        except:
+            if retry < retries - 1:
                 logger.info("OSS download failed. {}/{} File: {}. Retrying...".format(
-                    retry+1, retries, oss_file, 
+                    retry + 1, retries, oss_file,
                 ))
             else:
                 logger.info("OSS download failed. File: {}. Trying other videos.".format(
                     oss_file
                 ))
-    
+
     raise ValueError("OSS download failed. Please check your OSS connection. ")
+
 
 def read_from_bucket(bucket, oss_file, local_file, bucket_name, retries=10):
     """
@@ -81,11 +84,12 @@ def read_from_bucket(bucket, oss_file, local_file, bucket_name, retries=10):
             bucket.get_object_to_file(oss_file.split(bucket_name)[-1][1:], local_file)
             break
         except:
-            if i == retries-1:
+            if i == retries - 1:
                 logger.debug('Exceed maxmium tries for getting file {}'.format(
                     oss_file
                 ))
     return True
+
 
 def put_to_bucket(bucket, oss_file, local_file, bucket_name, retries=10):
     """
@@ -112,10 +116,11 @@ def put_to_bucket(bucket, oss_file, local_file, bucket_name, retries=10):
             ))
             break
         except:
-            if i == retries-1:
+            if i == retries - 1:
                 logger.debug('Exceed maxmium tries for getting file {}'.format(
                     oss_file
                 ))
+
 
 def clear_tmp_file(file_to_remove):
     """

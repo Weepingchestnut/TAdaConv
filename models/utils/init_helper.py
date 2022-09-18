@@ -18,6 +18,7 @@ import torch.nn as nn
 
 from torch.nn.init import _calculate_fan_in_and_fan_out
 
+
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
@@ -74,6 +75,7 @@ def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
     """
     return _no_grad_trunc_normal_(tensor, mean, std, a, b)
 
+
 def variance_scaling_(tensor, scale=1.0, mode='fan_in', distribution='normal'):
     fan_in, fan_out = _calculate_fan_in_and_fan_out(tensor)
     if mode == 'fan_in':
@@ -100,6 +102,7 @@ def variance_scaling_(tensor, scale=1.0, mode='fan_in', distribution='normal'):
 def lecun_normal_(tensor):
     variance_scaling_(tensor, mode='fan_in', distribution='truncated_normal')
 
+
 def _init_transformer_weights(m):
     if isinstance(m, nn.Linear):
         trunc_normal_(m.weight, std=.02)
@@ -108,6 +111,7 @@ def _init_transformer_weights(m):
     elif isinstance(m, nn.LayerNorm):
         nn.init.zeros_(m.bias)
         nn.init.ones_(m.weight)
+
 
 def c2_msra_fill(module: nn.Module) -> None:
     """
@@ -144,9 +148,9 @@ def _init_convnet_weights(model, fc_init_std=0.01, zero_init_final_bn=True):
             c2_msra_fill(m)
         elif isinstance(m, nn.BatchNorm3d):
             if (
-                hasattr(m, "transform_final_bn")
-                and m.transform_final_bn
-                and zero_init_final_bn
+                    hasattr(m, "transform_final_bn")
+                    and m.transform_final_bn
+                    and zero_init_final_bn
             ):
                 batchnorm_weight = 0.0
             else:

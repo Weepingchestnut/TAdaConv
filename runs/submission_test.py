@@ -20,6 +20,7 @@ from utils.meters import TestMeter, EpicKitchenMeter
 
 logger = logging.get_logger(__name__)
 
+
 @torch.no_grad()
 def perform_submission_test(test_loader, model, submission_meter, cfg):
     """
@@ -73,24 +74,24 @@ def perform_submission_test(test_loader, model, submission_meter, cfg):
             if misc.get_num_gpus(cfg) > 1:
                 preds_verb, preds_noun, labels_verb, labels_noun, video_idx = du.all_gather(
                     [
-                        preds["verb_class"], 
-                        preds["noun_class"], 
-                        labels["supervised"]["verb_class"], 
-                        labels["supervised"]["noun_class"], 
+                        preds["verb_class"],
+                        preds["noun_class"],
+                        labels["supervised"]["verb_class"],
+                        labels["supervised"]["noun_class"],
                         video_idx
                     ]
                 )
             else:
-                preds_verb  = preds["verb_class"]
-                preds_noun  = preds["noun_class"]
+                preds_verb = preds["verb_class"]
+                preds_noun = preds["noun_class"]
                 labels_verb = labels["supervised"]["verb_class"]
                 labels_noun = labels["supervised"]["noun_class"]
             if misc.get_num_gpus(cfg):
-                preds_verb  = preds_verb.cpu()
-                preds_noun  = preds_noun.cpu()
+                preds_verb = preds_verb.cpu()
+                preds_noun = preds_noun.cpu()
                 labels_verb = labels_verb.cpu()
                 labels_noun = labels_noun.cpu()
-                video_idx   = video_idx.cpu()
+                video_idx = video_idx.cpu()
 
             submission_meter.iter_toc()
             # Update and log stats.
@@ -100,7 +101,8 @@ def perform_submission_test(test_loader, model, submission_meter, cfg):
                 labels_verb.detach(),
                 labels_noun.detach(),
                 video_idx.detach(),
-                [test_loader.dataset._get_sample_info(i)["name"] for i in video_idx.tolist()] if "name" in test_loader.dataset._get_sample_info(0).keys() else []
+                [test_loader.dataset._get_sample_info(i)["name"] for i in
+                 video_idx.tolist()] if "name" in test_loader.dataset._get_sample_info(0).keys() else []
             )
             submission_meter.log_iter_stats(cur_iter)
         else:
@@ -141,19 +143,19 @@ def perform_submission_test(test_loader, model, submission_meter, cfg):
             "sls_pt": 2,
             "sls_tl": 3,
             "sls_td": 3,
-            "results":{
+            "results": {
                 f"{submission_meter.video_names[vid_ind]}": {
                     "verb": {
                         f"{verb_ind}": video_preds["verb_class"][vid_ind][verb_ind].item() \
-                            for verb_ind in range(video_preds["verb_class"].shape[1])
-                    }, 
+                        for verb_ind in range(video_preds["verb_class"].shape[1])
+                    },
                     "noun": {
                         f"{noun_ind}": video_preds["noun_class"][vid_ind][noun_ind].item() \
-                            for noun_ind in range(video_preds["noun_class"].shape[1])
+                        for noun_ind in range(video_preds["noun_class"].shape[1])
                     },
                     "action": {
-                        f"{action_ind//300},{action_ind%300}": action_class[vid_ind][action_ind].item() \
-                            for action_ind in action_ind_top100[vid_ind].tolist()
+                        f"{action_ind // 300},{action_ind % 300}": action_class[vid_ind][action_ind].item() \
+                        for action_ind in action_ind_top100[vid_ind].tolist()
                     }
                 } for vid_ind in range(video_preds["verb_class"].shape[0])
             }
@@ -168,27 +170,28 @@ def perform_submission_test(test_loader, model, submission_meter, cfg):
 
         verb = submission_meter.video_preds["verb_class"]
         noun = submission_meter.video_preds["noun_class"]
-        torch.save(verb, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_verb.pyth"))
-        torch.save(noun, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_noun.pyth"))
+        torch.save(verb, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_verb.pyth"))
+        torch.save(noun, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_noun.pyth"))
         logger.info(
-            "Successfully saved verb and noun results to {} and {}.".format(os.path.join(cfg.OUTPUT_DIR, "verb.pyth"), os.path.join(cfg.OUTPUT_DIR, "noun.pyth"))
+            "Successfully saved verb and noun results to {} and {}.".format(os.path.join(cfg.OUTPUT_DIR, "verb.pyth"),
+                                                                            os.path.join(cfg.OUTPUT_DIR, "noun.pyth"))
         )
     elif hasattr(cfg.DATA, "TRAIN_VERSION") and cfg.DATA.TRAIN_VERSION == "only_train_verb":
         verb = submission_meter.video_preds
-        torch.save(verb, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_verb.pyth"))
+        torch.save(verb, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_verb.pyth"))
         logger.info(
             "Successfully saved verb results to {}.".format(os.path.join(cfg.OUTPUT_DIR, "verb.pyth"))
         )
     elif hasattr(cfg.DATA, "TRAIN_VERSION") and cfg.DATA.TRAIN_VERSION == "only_train_noun":
         noun = submission_meter.video_preds
-        torch.save(noun, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_noun.pyth"))
+        torch.save(noun, os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_noun.pyth"))
         logger.info(
             "Successfully saved noun results to {}.".format(os.path.join(cfg.OUTPUT_DIR, "noun.pyth"))
         )
 
-
     submission_meter.finalize_metrics()
     submission_meter.reset()
+
 
 def submission_test(cfg):
     """
@@ -215,7 +218,7 @@ def submission_test(cfg):
     model, model_ema = build_model(cfg)
     if du.is_master_proc() and cfg.LOG_MODEL_INFO:
         misc.log_model_info(model, cfg, use_train_input=False)
-    
+
     if cfg.OSS.ENABLE:
         model_bucket_name = cfg.OSS.CHECKPOINT_OUTPUT_PATH.split('/')[2]
         model_bucket = bu.initialize_bucket(cfg.OSS.KEY, cfg.OSS.SECRET, cfg.OSS.ENDPOINT, model_bucket_name)
@@ -229,9 +232,9 @@ def submission_test(cfg):
     logger.info("Testing model for {} iterations".format(len(test_loader)))
 
     assert (
-        len(test_loader.dataset)
-        % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
-        == 0
+            len(test_loader.dataset)
+            % (cfg.TEST.NUM_ENSEMBLE_VIEWS * cfg.TEST.NUM_SPATIAL_CROPS)
+            == 0
     )
     # Create meters for multi-view testing and results saving.
     cfg.LOG_PERIOD = max(len(test_loader) // 10, 5)
@@ -248,34 +251,34 @@ def submission_test(cfg):
     # Perform multi-view test on the submission set.
     submission_meter.set_model_ema_enabled(False)
     perform_submission_test(test_loader, model, submission_meter, cfg)
-    
+
     # upload results to bucket
     if model_bucket is not None and du.is_master_proc():
         filename = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE)
         bu.put_to_bucket(
-            model_bucket, 
+            model_bucket,
             cfg.OSS.CHECKPOINT_OUTPUT_PATH + 'log/',
             filename,
             cfg.OSS.CHECKPOINT_OUTPUT_PATH.split('/')[2]
         )
         filename = os.path.join(cfg.OUTPUT_DIR, cfg.SUBMISSION.SAVE_RESULTS_PATH)
         bu.put_to_bucket(
-            model_bucket, 
+            model_bucket,
             cfg.OSS.CHECKPOINT_OUTPUT_PATH + 'log/',
             filename,
             cfg.OSS.CHECKPOINT_OUTPUT_PATH.split('/')[2]
         )
-        if os.path.exists(os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_verb.pyth")):
-            filename = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_verb.pyth")
+        if os.path.exists(os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_verb.pyth")):
+            filename = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_verb.pyth")
             bu.put_to_bucket(
-                model_bucket, 
+                model_bucket,
                 cfg.OSS.CHECKPOINT_OUTPUT_PATH + 'log/',
                 filename,
                 cfg.OSS.CHECKPOINT_OUTPUT_PATH.split('/')[2]
             )
-            filename = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0]+"_noun.pyth")
+            filename = os.path.join(cfg.OUTPUT_DIR, cfg.TEST.LOG_FILE.split('.')[0] + "_noun.pyth")
             bu.put_to_bucket(
-                model_bucket, 
+                model_bucket,
                 cfg.OSS.CHECKPOINT_OUTPUT_PATH + 'log/',
                 filename,
                 cfg.OSS.CHECKPOINT_OUTPUT_PATH.split('/')[2]

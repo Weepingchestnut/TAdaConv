@@ -16,6 +16,7 @@ from datasets.utils.mixup import label_smoothing
 
 SSL_LOSSES = Registry("SSL_Losses")
 
+
 class SoftTargetCrossEntropy(nn.Module):
 
     def __init__(self, reduction=None):
@@ -28,6 +29,7 @@ class SoftTargetCrossEntropy(nn.Module):
     def forward(self, x, target):
         loss = torch.sum(-target * F.log_softmax(x, dim=-1), dim=-1)
         return loss.mean()
+
 
 _LOSSES = {
     "cross_entropy": nn.CrossEntropyLoss,
@@ -48,6 +50,7 @@ def get_loss_func(loss_name):
         raise NotImplementedError("Loss {} is not supported".format(loss_name))
     return _LOSSES[loss_name]
 
+
 def calculate_loss(cfg, preds, logits, labels, cur_epoch):
     """
     Calculates loss according to cfg.
@@ -66,40 +69,41 @@ def calculate_loss(cfg, preds, logits, labels, cur_epoch):
         loss_weights = cfg.PRETRAIN.LOSS_WEIGHTS
         # sum up all loss items
         for loss_idx, loss_item in enumerate(loss_parts):
-            loss_cur, weight = SSL_LOSSES.get("Loss_"+loss_item)(cfg, preds, logits, labels["self-supervised"], cur_epoch)
+            loss_cur, weight = SSL_LOSSES.get("Loss_" + loss_item)(cfg, preds, logits, labels["self-supervised"],
+                                                                   cur_epoch)
             if isinstance(loss_cur, dict):
                 for k, v in loss_cur.items():
                     loss_in_parts[k] = v
                     if "debug" not in k:
-                        loss += loss_weights[loss_idx]*loss_in_parts[k]
+                        loss += loss_weights[loss_idx] * loss_in_parts[k]
             else:
                 loss_in_parts[loss_item] = loss_cur
-                loss += loss_weights[loss_idx]*loss_in_parts[loss_item]
+                loss += loss_weights[loss_idx] * loss_in_parts[loss_item]
     elif cfg.LOCALIZATION.ENABLE:
         loss = 0
         loss_parts = cfg.LOCALIZATION.LOSS.split('+')
         loss_weights = cfg.LOCALIZATION.LOSS_WEIGHTS
         for loss_idx, loss_item in enumerate(loss_parts):
-            loss_cur, weight = LOCALIZATION_LOSSES.get("Loss_"+loss_item)(cfg, preds, logits, labels, cur_epoch)
+            loss_cur, weight = LOCALIZATION_LOSSES.get("Loss_" + loss_item)(cfg, preds, logits, labels, cur_epoch)
             if isinstance(loss_cur, dict):
                 for k, v in loss_cur.items():
                     loss_in_parts[k] = v
                     if "debug" not in k:
-                        loss += loss_weights[loss_idx]*loss_in_parts[k]
+                        loss += loss_weights[loss_idx] * loss_in_parts[k]
             else:
                 loss_in_parts[loss_item] = loss_cur
-                loss += loss_weights[loss_idx]*loss_in_parts[loss_item]
+                loss += loss_weights[loss_idx] * loss_in_parts[loss_item]
     else:
         # Explicitly declare reduction to mean.
         loss_fun = get_loss_func(cfg.TRAIN.LOSS_FUNC)(reduction="mean")
-        
+
         # Compute the loss.
         if "supervised_mixup" in labels.keys():
             if isinstance(labels["supervised_mixup"], dict):
                 loss = 0
                 for k, v in labels["supervised_mixup"].items():
-                    loss_in_parts["loss_"+k] = loss_fun(preds[k], v)
-                    loss += loss_in_parts["loss_"+k]
+                    loss_in_parts["loss_" + k] = loss_fun(preds[k], v)
+                    loss += loss_in_parts["loss_" + k]
             else:
                 loss = loss_fun(preds, labels["supervised_mixup"])
         else:
@@ -110,15 +114,16 @@ def calculate_loss(cfg, preds, logits, labels, cur_epoch):
             if isinstance(labels_, dict):
                 loss = 0
                 for k, v in labels_.items():
-                    loss_in_parts["loss_"+k] = loss_fun(preds[k], v)
-                    loss += loss_in_parts["loss_"+k]
+                    loss_in_parts["loss_" + k] = loss_fun(preds[k], v)
+                    loss += loss_in_parts["loss_" + k]
             else:
                 loss = loss_fun(preds, labels_)
 
     return loss, loss_in_parts, weight
 
+
 @SSL_LOSSES.register()
-def Loss_MoSIX(cfg, preds, logits, labels, cur_epoch=0): # Camera Movement Spatial Transform
+def Loss_MoSIX(cfg, preds, logits, labels, cur_epoch=0):  # Camera Movement Spatial Transform
     """
     Computes only-x MoSI loss.
     See Ziyuan Huang et al.
@@ -142,6 +147,7 @@ def Loss_MoSIX(cfg, preds, logits, labels, cur_epoch=0): # Camera Movement Spati
     loss = {}
     loss["loss_move_x"] = loss_func(pred_move_x, labels["move_joint"].reshape(pred_move_x.shape[0]))
     return loss, None
+
 
 @SSL_LOSSES.register()
 def Loss_MoSIY(cfg, preds, logits, labels, cur_epoch=0):
@@ -168,6 +174,7 @@ def Loss_MoSIY(cfg, preds, logits, labels, cur_epoch=0):
     loss = {}
     loss["loss_move_y"] = loss_func(pred_move_y, labels["move_joint"].reshape(pred_move_y.shape[0]))
     return loss, None
+
 
 @SSL_LOSSES.register()
 def Loss_MoSIJoint(cfg, preds, logits, labels, cur_epoch=0):

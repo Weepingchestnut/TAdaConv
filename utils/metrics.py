@@ -9,6 +9,7 @@ Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 
 import torch
 
+
 def joint_topks_correct(preds, labels, ks):
     """
     Calculates number of correctly predicted samples for each top-k value
@@ -75,7 +76,7 @@ def joint_topks_correct(preds, labels, ks):
             top_max_k_correct[:k, :].view(-1).float().sum() for k in ks
         ]
         topks_correct_all[k] = topks_correct
-    
+
     joint_pred = joint_pred.reshape(joint_pred.shape[0], -1)
     joint_label = joint_label[0] * num_classes[1] + joint_label[1]
     _top_max_k_vals, top_max_k_inds = torch.topk(
@@ -92,10 +93,9 @@ def joint_topks_correct(preds, labels, ks):
         top_max_k_correct[:k, :].view(-1).float().sum() for k in ks
     ]
     topks_correct_all["joint_class"] = topks_correct
-    
+
     return topks_correct_all, b
-    
-    
+
 
 def topks_correct(preds, labels, ks):
     """

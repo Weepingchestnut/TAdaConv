@@ -7,7 +7,8 @@ from utils.registry import Registry
 
 SSL_GENERATOR_REGISTRY = Registry("SSL_Methods")
 
-def build_ssl_generator(cfg, split): 
+
+def build_ssl_generator(cfg, split):
     """
     Entry point to registered self-supervised learning methods. 
     Returns transformed frames and the self-supervised label.
@@ -16,4 +17,3 @@ def build_ssl_generator(cfg, split):
     """
     ssl_generator = SSL_GENERATOR_REGISTRY.get(cfg.PRETRAIN.GENERATOR)(cfg, split)
     return ssl_generator
-    

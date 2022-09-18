@@ -10,14 +10,16 @@ from models.base.base_blocks import BaseBranch, Base3DStem, BaseHead
 from models.base.base_blocks import BRANCH_REGISTRY, HEAD_REGISTRY
 from models.utils.init_helper import _init_convnet_weights
 
+
 @HEAD_REGISTRY.register()
 class SlowFastHead(nn.Module):
     """
     Constructs head for the SlowFast Networks. 
     """
+
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
     ):
         """
         Args: 
@@ -26,7 +28,7 @@ class SlowFastHead(nn.Module):
         super(SlowFastHead, self).__init__()
         self.cfg = cfg
         self.mode = cfg.VIDEO.BACKBONE.SLOWFAST.MODE
-        dim             = cfg.VIDEO.BACKBONE.NUM_OUT_FEATURES
+        dim = cfg.VIDEO.BACKBONE.NUM_OUT_FEATURES
         if self.mode == "slowfast":
             dim = dim + dim // cfg.VIDEO.BACKBONE.SLOWFAST.BETA
         elif self.mode == "fastonly":
@@ -37,8 +39,8 @@ class SlowFastHead(nn.Module):
             raise NotImplementedError(
                 "Mode {} not supported.".format(self.mode)
             )
-        num_classes     = cfg.VIDEO.HEAD.NUM_CLASSES
-        dropout_rate    = cfg.VIDEO.HEAD.DROPOUT_RATE
+        num_classes = cfg.VIDEO.HEAD.NUM_CLASSES
+        dropout_rate = cfg.VIDEO.HEAD.DROPOUT_RATE
         activation_func = cfg.VIDEO.HEAD.ACTIVATION
         self._construct_head(
             dim,
@@ -49,15 +51,15 @@ class SlowFastHead(nn.Module):
         _init_convnet_weights(self)
 
     def _construct_head(
-        self,
-        dim,
-        num_classes,
-        dropout_rate,
-        activation_func
+            self,
+            dim,
+            num_classes,
+            dropout_rate,
+            activation_func
     ):
         self.global_avg_pool = nn.AdaptiveAvgPool3d(1)
-        
-        if dropout_rate > 0.0: 
+
+        if dropout_rate > 0.0:
             self.dropout = nn.Dropout(dropout_rate)
 
         self.out = nn.Linear(dim, num_classes, bias=True)
@@ -68,8 +70,8 @@ class SlowFastHead(nn.Module):
             self.activation = nn.Sigmoid()
         else:
             raise NotImplementedError(
-            "{} is not supported as an activation"
-            "function.".format(activation_func)
+                "{} is not supported as an activation"
+                "function.".format(activation_func)
             )
 
     def forward(self, x):
@@ -78,7 +80,7 @@ class SlowFastHead(nn.Module):
             x (Tensor): classification predictions.
             logits (Tensor): global average pooled features.
         """
-        
+
         if self.mode == "slowfast":
             x = torch.cat(
                 (self.global_avg_pool(x[0]), self.global_avg_pool(x[1])),
@@ -99,18 +101,20 @@ class SlowFastHead(nn.Module):
         if not self.training:
             out = self.activation(out)
             out = out.mean([1, 2, 3])
-        
+
         out = out.view(out.shape[0], -1)
         return out, x.view(x.shape[0], -1)
+
 
 @HEAD_REGISTRY.register()
 class SlowFastHeadx2(nn.Module):
     """
     SlowFast Head for EPIC-KITCHENS dataset.
     """
+
     def __init__(
-        self,
-        cfg,
+            self,
+            cfg,
     ):
         """
         Args: 
@@ -119,7 +123,7 @@ class SlowFastHeadx2(nn.Module):
         super(SlowFastHeadx2, self).__init__()
         self.cfg = cfg
         self.mode = cfg.VIDEO.BACKBONE.SLOWFAST.MODE
-        dim             = cfg.VIDEO.BACKBONE.NUM_OUT_FEATURES
+        dim = cfg.VIDEO.BACKBONE.NUM_OUT_FEATURES
         if self.mode == "slowfast":
             dim = dim + dim // cfg.VIDEO.BACKBONE.SLOWFAST.BETA
         elif self.mode == "fastonly":
@@ -130,8 +134,8 @@ class SlowFastHeadx2(nn.Module):
             raise NotImplementedError(
                 "Mode {} not supported.".format(self.mode)
             )
-        num_classes     = cfg.VIDEO.HEAD.NUM_CLASSES
-        dropout_rate    = cfg.VIDEO.HEAD.DROPOUT_RATE
+        num_classes = cfg.VIDEO.HEAD.NUM_CLASSES
+        dropout_rate = cfg.VIDEO.HEAD.DROPOUT_RATE
         activation_func = cfg.VIDEO.HEAD.ACTIVATION
         self._construct_head(
             dim,
@@ -142,15 +146,15 @@ class SlowFastHeadx2(nn.Module):
         _init_convnet_weights(self)
 
     def _construct_head(
-        self,
-        dim,
-        num_classes,
-        dropout_rate,
-        activation_func
+            self,
+            dim,
+            num_classes,
+            dropout_rate,
+            activation_func
     ):
         self.global_avg_pool = nn.AdaptiveAvgPool3d(1)
-        
-        if dropout_rate > 0.0: 
+
+        if dropout_rate > 0.0:
             self.dropout = nn.Dropout(dropout_rate)
 
         self.out1 = nn.Linear(dim, num_classes[0], bias=True)
@@ -162,8 +166,8 @@ class SlowFastHeadx2(nn.Module):
             self.activation = nn.Sigmoid()
         else:
             raise NotImplementedError(
-            "{} is not supported as an activation"
-            "function.".format(activation_func)
+                "{} is not supported as an activation"
+                "function.".format(activation_func)
             )
 
     def forward(self, x):
@@ -174,7 +178,7 @@ class SlowFastHeadx2(nn.Module):
                 the predictions on the verb and noun.
             logits (Tensor): global average pooled features.
         """
-        
+
         if self.mode == "slowfast":
             x = torch.cat(
                 (self.global_avg_pool(x[0]), self.global_avg_pool(x[1])),
@@ -196,7 +200,7 @@ class SlowFastHeadx2(nn.Module):
             out1 = out1.mean([1, 2, 3])
             out2 = self.activation(out2)
             out2 = out2.mean([1, 2, 3])
-        
+
         out1 = out1.view(out1.shape[0], -1)
         out2 = out2.view(out2.shape[0], -1)
         return {"verb_class": out1, "noun_class": out2}, x.view(x.shape[0], -1)

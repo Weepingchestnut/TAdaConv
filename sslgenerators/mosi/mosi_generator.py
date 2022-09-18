@@ -17,6 +17,7 @@ from datasets.utils.transformations import ColorJitter
 
 logger = logging.get_logger(__name__)
 
+
 @SSL_GENERATOR_REGISTRY.register()
 class MoSIGenerator(object):
     """
@@ -31,6 +32,7 @@ class MoSIGenerator(object):
     (b) In the training stage, each speed in the `speed_set` is used to 
     generate a sample from the given data. 
     """
+
     def __init__(self, cfg, split):
         """
         Args: 
@@ -42,7 +44,7 @@ class MoSIGenerator(object):
         self.num_speeds = cfg.VIDEO.HEAD.NUM_CLASSES
         self.distance_jitter = cfg.PRETRAIN.DISTANCE_JITTER
         self.label_mode = cfg.PRETRAIN.LABEL_MODE
-        self.num_frames  = cfg.PRETRAIN.NUM_FRAMES
+        self.num_frames = cfg.PRETRAIN.NUM_FRAMES
         self.split = split
         self.static_mask_enable = cfg.PRETRAIN.STATIC_MASK
         self.aspect_ratio = cfg.PRETRAIN.ASPECT_RATIO
@@ -53,15 +55,15 @@ class MoSIGenerator(object):
             if len(self.crop_size) == 2:
                 assert self.crop_size[0] == self.crop_size[1]
                 self.crop_size = self.crop_size[0]
-    
+
         assert (len(self.distance_jitter) == 2) and (
-            self.distance_jitter[0] <= self.distance_jitter[1]
+                self.distance_jitter[0] <= self.distance_jitter[1]
         )
 
         self.initialize_speed_set()
         self.labels = self.label_generator()
         self.config_transform()
-        
+
     def initialize_speed_set(self):
         """
         Initialize speed set for x and y separately. 
@@ -80,25 +82,25 @@ class MoSIGenerator(object):
         # then the speed range for each axis is [-2, -1, 0, 1, 2]
         # negative numbers indicate movement in the negative direction
         self.speed_range = (
-            torch.linspace(0, self.num_speeds-1, self.num_speeds) - self.num_speeds // 2
+                torch.linspace(0, self.num_speeds - 1, self.num_speeds) - self.num_speeds // 2
         ).long()
         self.speed_min = int(min(self.speed_range))
 
         for x in self.speed_range:
             for y in self.speed_range:
-                x,y = [int(x), int(y)]
-                if x==0 and y==0:
+                x, y = [int(x), int(y)]
+                if x == 0 and y == 0:
                     if _zero_included:
                         continue
                     else:
                         _zero_included = True
-                if self.cfg.PRETRAIN.DECOUPLE and x*y != 0: 
+                if self.cfg.PRETRAIN.DECOUPLE and x * y != 0:
                     # if decouple, then one of x,y must be 0
                     continue
                 self.speed_all.append(
                     [x, y]
                 )
-        
+
         # select speeds from all speed combinations
         self.speed_set = []
         assert self.cfg.PRETRAIN.DATA_MODE is not None
@@ -109,22 +111,23 @@ class MoSIGenerator(object):
             """
             if "x" in self.cfg.PRETRAIN.DATA_MODE:
                 for i in range(len(self.speed_all)):
-                    if self.speed_all[i][0] != 0: # speed of x is not 0
+                    if self.speed_all[i][0] != 0:  # speed of x is not 0
                         self.speed_set.append(self.speed_all[i])
             if "y" in self.cfg.PRETRAIN.DATA_MODE:
                 for i in range(len(self.speed_all)):
-                    if self.speed_all[i][1] != 0: # speed of y is not 0
+                    if self.speed_all[i][1] != 0:  # speed of y is not 0
                         self.speed_set.append(self.speed_all[i])
         else:
             # if not decoupled, all the speeds in the speed set is added in the speed set
             if "x" in self.cfg.PRETRAIN.DATA_MODE and "y" in self.cfg.PRETRAIN.DATA_MODE:
                 self.speed_set = self.speed_all
             else:
-                raise NotImplementedError("Not supported for data mode {} when DECOUPLE is set to true.".format(self.cfg.PRETRAIN.DATA_MODE))
-            
+                raise NotImplementedError(
+                    "Not supported for data mode {} when DECOUPLE is set to true.".format(self.cfg.PRETRAIN.DATA_MODE))
+
         if self.cfg.PRETRAIN.DECOUPLE and not self.cfg.PRETRAIN.ZERO_OUT:
             # add speed=0
-            self.speed_set.append([0,0])     
+            self.speed_set.append([0, 0])
 
     def sample_generator(self, data, index):
         """
@@ -139,34 +142,35 @@ class MoSIGenerator(object):
         for speed_idx, speed in enumerate(self.speed_set):
             # generate all the samples according to the speed set
             num_input_frames, h, w, c = frames.shape
-            frame_idx = random.randint(0, num_input_frames-1)
-            selected_frame = frames[frame_idx] # H, W, C
+            frame_idx = random.randint(0, num_input_frames - 1)
+            selected_frame = frames[frame_idx]  # H, W, C
 
             # standardize the frame size
-            if self.cfg.PRETRAIN.FRAME_SIZE_STANDARDIZE_ENABLE: 
+            if self.cfg.PRETRAIN.FRAME_SIZE_STANDARDIZE_ENABLE:
                 selected_frame = self.frame_size_standardize(selected_frame)
-            
+
             # generate the sample index 
             h, w, c = selected_frame.shape
             speed_x, speed_y = speed
-            start_x, end_x = self.get_crop_params(speed_x/(self.num_speeds//2), w)
-            start_y, end_y = self.get_crop_params(speed_y/(self.num_speeds//2), h)
-            intermediate_x = (torch.linspace(start_x, end_x, self.num_frames).long()).clamp_(0, w-self.crop_size)
-            intermediate_y = (torch.linspace(start_y, end_y, self.num_frames).long()).clamp_(0, h-self.crop_size)
-            
+            start_x, end_x = self.get_crop_params(speed_x / (self.num_speeds // 2), w)
+            start_y, end_y = self.get_crop_params(speed_y / (self.num_speeds // 2), h)
+            intermediate_x = (torch.linspace(start_x, end_x, self.num_frames).long()).clamp_(0, w - self.crop_size)
+            intermediate_y = (torch.linspace(start_y, end_y, self.num_frames).long()).clamp_(0, h - self.crop_size)
+
             frames_out = torch.empty(
                 self.num_frames, self.crop_size, self.crop_size, c, device=frames.device, dtype=frames.dtype
             )
 
             for t in range(self.num_frames):
                 frames_out[t] = selected_frame[
-                    intermediate_y[t]:intermediate_y[t]+self.crop_size, intermediate_x[t]:intermediate_x[t]+self.crop_size, :
-                ]
+                                intermediate_y[t]:intermediate_y[t] + self.crop_size,
+                                intermediate_x[t]:intermediate_x[t] + self.crop_size, :
+                                ]
 
             # performs augmentation on the generated image sequence
             if self.transform is not None:
                 frames_out = self.transform(frames_out)
-            
+
             # applies static mask
             if self.static_mask_enable:
                 frames_out = self.static_mask(frames_out)
@@ -174,7 +178,7 @@ class MoSIGenerator(object):
         out = torch.stack(out)
         data["video"] = out
         return data
-            
+
     def label_generator(self):
         """
         Generates the label for the MoSI.
@@ -186,7 +190,7 @@ class MoSIGenerator(object):
             return self.generate_separate_labels()
         elif self.label_mode == 'joint':
             return self.generate_joint_labels()
-            
+
     def generate_separate_labels(self):
         """
         Generates labels for separate prediction.
@@ -195,8 +199,8 @@ class MoSIGenerator(object):
         label_y = []
         for speed_idx, speed in enumerate(self.speed_set):
             speed_x, speed_y = speed
-            speed_x_label = speed_x - self.speed_min - (speed_x>0)*(self.cfg.PRETRAIN.ZERO_OUT)
-            speed_y_label = speed_y - self.speed_min - (speed_y>0)*(self.cfg.PRETRAIN.ZERO_OUT)
+            speed_x_label = speed_x - self.speed_min - (speed_x > 0) * (self.cfg.PRETRAIN.ZERO_OUT)
+            speed_y_label = speed_y - self.speed_min - (speed_y > 0) * (self.cfg.PRETRAIN.ZERO_OUT)
             label_x.append(speed_x_label)
             label_y.append(speed_y_label)
         logger.info("LABELS:\nx: {},\ny: {}".format(label_x, label_y))
@@ -217,10 +221,10 @@ class MoSIGenerator(object):
         logger.info(correspondence)
         return {
             "move_joint": torch.linspace(
-                0, len(self.speed_set)-1, len(self.speed_set), dtype=torch.int64
+                0, len(self.speed_set) - 1, len(self.speed_set), dtype=torch.int64
             )
         }
-            
+
     def get_crop_params(self, speed_factor, total_length):
         """
         Returns crop parameters.
@@ -229,26 +233,30 @@ class MoSIGenerator(object):
             total_length (int): length of the side
         """
         if speed_factor == 0:
-            total_length>=self.crop_size, ValueError("Total length ({}) should not be less than crop size ({}) for speed {}.".format(
-                total_length, self.crop_size, speed_factor
-            ))
+            total_length >= self.crop_size, ValueError(
+                "Total length ({}) should not be less than crop size ({}) for speed {}.".format(
+                    total_length, self.crop_size, speed_factor
+                ))
         else:
-            assert total_length>self.crop_size, ValueError("Total length ({}) should be larger than crop size ({}) for speed {}.".format(
-                total_length, self.crop_size, speed_factor
-            ))
-        assert abs(speed_factor) <= 1, ValueError("Speed factor should be smaller than 1. But {} was given.".format(speed_factor))
+            assert total_length > self.crop_size, ValueError(
+                "Total length ({}) should be larger than crop size ({}) for speed {}.".format(
+                    total_length, self.crop_size, speed_factor
+                ))
+        assert abs(speed_factor) <= 1, ValueError(
+            "Speed factor should be smaller than 1. But {} was given.".format(speed_factor))
 
         distance_factor = self.get_distance_factor(speed_factor) if self.split == 'train' else 1
         distance = (total_length - self.crop_size) * speed_factor * distance_factor
         start_min = max(
-            0, 0-distance 
-        ) # if distance > 0, move right or down, start_x_min=0
+            0, 0 - distance
+        )  # if distance > 0, move right or down, start_x_min=0
         start_max = min(
-            (total_length-self.crop_size),
-            (total_length-self.crop_size)-distance
-        ) # if distance > 0, move right or down, start_x_max = (w-crop_size)-distance
-        start = random.randint(int(start_min), int(start_max)) if self.split == 'train' else (total_length-self.crop_size-distance)//2
-        end   = start + distance
+            (total_length - self.crop_size),
+            (total_length - self.crop_size) - distance
+        )  # if distance > 0, move right or down, start_x_max = (w-crop_size)-distance
+        start = random.randint(int(start_min), int(start_max)) if self.split == 'train' else (
+                                                                                                         total_length - self.crop_size - distance) // 2
+        end = start + distance
         return start, end
 
     def get_distance_factor(self, speed_factor):
@@ -266,7 +274,7 @@ class MoSIGenerator(object):
             frame (Tensor): a single frame with the shape of (C, 1, H, W) to be
                 standardized.
         """
-        h,w,_ = frame.shape
+        h, w, _ = frame.shape
         standard_size = self.cfg.PRETRAIN.STANDARD_SIZE
         if isinstance(standard_size, list):
             assert len(standard_size) == 3
@@ -278,21 +286,21 @@ class MoSIGenerator(object):
 
         # resize the short side to standard size
         dtype = frame.dtype
-        frame = frame.permute(2, 0, 1).to(torch.float) # C, H, W
+        frame = frame.permute(2, 0, 1).to(torch.float)  # C, H, W
         aspect_ratio = random.uniform(self.aspect_ratio[0], self.aspect_ratio[1])
         if h <= w:
             new_h = reshape_size
             new_w = int(new_h / h * w)
             # resize
-            frame = F.resize(frame.unsqueeze(0), (new_h, new_w), "bilinear").squeeze(0) 
+            frame = F.resize(frame.unsqueeze(0), (new_h, new_w), "bilinear").squeeze(0)
         elif h > w:
             new_w = reshape_size
             new_h = int(new_w / w * h)
             # resize
-            frame = F.resize(frame.unsqueeze(0), (new_h, new_w), "bilinear").squeeze(0) 
-            
-        # crop
-        if aspect_ratio >= 1: 
+            frame = F.resize(frame.unsqueeze(0), (new_h, new_w), "bilinear").squeeze(0)
+
+            # crop
+        if aspect_ratio >= 1:
             crop_h = int(crop_size / aspect_ratio)
             crop_w = crop_size
         else:
@@ -300,7 +308,7 @@ class MoSIGenerator(object):
             crop_w = int(crop_size * aspect_ratio)
         start_h = random.randint(0, new_h - crop_h)
         start_w = random.randint(0, new_w - crop_w)
-        return frame[:, start_h:start_h+crop_h, start_w:start_w+crop_w].to(dtype).permute(1, 2, 0) # H, W, C
+        return frame[:, start_h:start_h + crop_h, start_w:start_w + crop_w].to(dtype).permute(1, 2, 0)  # H, W, C
 
     def static_mask(self, frames):
         """
@@ -312,15 +320,17 @@ class MoSIGenerator(object):
             frames (Tensor): masked frames.
         """
         c, t, h, w = frames.shape
-        rand_t = random.randint(0, t-1)
+        rand_t = random.randint(0, t - 1)
         mask_size_ratio = random.uniform(self.mask_size_ratio[0], self.mask_size_ratio[1])
-        mask_size_x, mask_size_y = [int(w*mask_size_ratio), int(h*mask_size_ratio)]
-        start_x = random.randint(0, w-mask_size_x)
-        start_y = random.randint(0, h-mask_size_y)
+        mask_size_x, mask_size_y = [int(w * mask_size_ratio), int(h * mask_size_ratio)]
+        start_x = random.randint(0, w - mask_size_x)
+        start_y = random.randint(0, h - mask_size_y)
         frames_out = frames[:, rand_t].unsqueeze(1).expand(-1, t, -1, -1).clone()
-        frames_out[:, :, start_y:start_y+mask_size_y, start_x:start_x+mask_size_x] = frames[
-            :, :, start_y:start_y+mask_size_y, start_x:start_x+mask_size_x
-        ]
+        frames_out[:, :, start_y:start_y + mask_size_y, start_x:start_x + mask_size_x] = frames[
+                                                                                         :, :,
+                                                                                         start_y:start_y + mask_size_y,
+                                                                                         start_x:start_x + mask_size_x
+                                                                                         ]
         return frames_out
 
     def config_transform(self):
@@ -345,7 +355,7 @@ class MoSIGenerator(object):
                         consistent=self.cfg.AUGMENTATION.CONSISTENT,
                         shuffle=self.cfg.AUGMENTATION.SHUFFLE,
                         gray_first=self.cfg.AUGMENTATION.GRAY_FIRST,
-                        ),
+                    ),
                 )
             std_transform_list += [
                 transforms.NormalizeVideo(

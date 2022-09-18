@@ -13,17 +13,19 @@ import pandas as pd
 from joblib import Parallel, delayed
 import sys
 from utils import logging
-logger = logging.get_logger(__name__)
-class Epicdetection(object):
 
+logger = logging.get_logger(__name__)
+
+
+class Epicdetection(object):
     GROUND_TRUTH_FIELDS = ['database', 'taxonomy', 'version']
     PREDICTION_FIELDS = ['results']
 
     def __init__(self, ground_truth_filename=None, prediction_filename=None,
                  ground_truth_fields=GROUND_TRUTH_FIELDS,
                  prediction_fields=PREDICTION_FIELDS,
-                 tiou_thresholds=np.linspace(0.5, 0.95, 10), 
-                 subset='validation', verbose=False, 
+                 tiou_thresholds=np.linspace(0.5, 0.95, 10),
+                 subset='validation', verbose=False,
                  check_status=True,
                  assign_class=None,
                  classes=None):
@@ -56,7 +58,6 @@ class Epicdetection(object):
             logger.info('\tNumber of predictions: {}'.format(nr_pred))
             logger.info('\tFixed threshold for tiou score: {}'.format(self.tiou_thresholds))
         sys.stdout.flush()
-
 
     def _import_ground_truth(self, ground_truth_filename, classes=None):
         """Reads ground truth file, checks if it is well formatted, and returns
@@ -111,7 +112,6 @@ class Epicdetection(object):
                 t_start_lst.append(float(ann['segment'][0]))
                 t_end_lst.append(float(ann['segment'][1]))
                 label_lst.append(activity_index[ann['label']])
-                
 
         ground_truth = pd.DataFrame({'video-id': video_lst,
                                      't-start': t_start_lst,
@@ -198,18 +198,18 @@ class Epicdetection(object):
             label_name = self.assign_class
             cidx = self.activity_index[label_name]
             compute_average_precision_detection(
-                        ground_truth=ground_truth_by_label.get_group(cidx).reset_index(drop=True),
-                        prediction=self._get_predictions_with_label(prediction_by_label, label_name, cidx),
-                        tiou_thresholds=self.tiou_thresholds,
+                ground_truth=ground_truth_by_label.get_group(cidx).reset_index(drop=True),
+                prediction=self._get_predictions_with_label(prediction_by_label, label_name, cidx),
+                tiou_thresholds=self.tiou_thresholds,
             )
         else:
             if 'label' in group_name:
                 results = Parallel(n_jobs=32)(
-                            delayed(compute_average_precision_detection)(
-                                ground_truth=ground_truth_by_label.get_group(cidx).reset_index(drop=True),
-                                prediction=self._get_predictions_with_label(prediction_by_label, label_name, cidx),
-                                tiou_thresholds=self.tiou_thresholds,
-                            ) for cidx, label_name in enumerate(label_name_list))
+                    delayed(compute_average_precision_detection)(
+                        ground_truth=ground_truth_by_label.get_group(cidx).reset_index(drop=True),
+                        prediction=self._get_predictions_with_label(prediction_by_label, label_name, cidx),
+                        tiou_thresholds=self.tiou_thresholds,
+                    ) for cidx, label_name in enumerate(label_name_list))
             else:
                 # for cidx, label_name in enumerate(label_name_list):
                 #     compute_average_precision_detection(
@@ -218,13 +218,13 @@ class Epicdetection(object):
                 #                 tiou_thresholds=self.tiou_thresholds,
                 #             )
                 results = Parallel(n_jobs=16)(
-                            delayed(compute_average_precision_detection)(
-                                ground_truth=ground_truth_by_label.get_group(label_name).reset_index(drop=True),
-                                prediction=self._get_predictions_with_label(prediction_by_label, label_name, label_name),
-                                tiou_thresholds=self.tiou_thresholds,
-                            ) for cidx, label_name in enumerate(label_name_list))
+                    delayed(compute_average_precision_detection)(
+                        ground_truth=ground_truth_by_label.get_group(label_name).reset_index(drop=True),
+                        prediction=self._get_predictions_with_label(prediction_by_label, label_name, label_name),
+                        tiou_thresholds=self.tiou_thresholds,
+                    ) for cidx, label_name in enumerate(label_name_list))
             for i in range(len(label_name_list)):
-                ap[:,i] = results[i]
+                ap[:, i] = results[i]
 
             return ap
 
@@ -246,12 +246,13 @@ class Epicdetection(object):
         average_mAP = mAP.mean()
         map_list = mAP.tolist()
         tiou_list = self.tiou_thresholds.tolist()
-        map_str = ', '.join(["%.02f:%.04f"%(t, m) for t, m in zip(tiou_list, map_list)])
+        map_str = ', '.join(["%.02f:%.04f" % (t, m) for t, m in zip(tiou_list, map_list)])
         logger.info(map_str)
         if self.verbose:
             logger.info('[RESULTS] Performance on ActivityNet detection task.')
             logger.info('\tAverage-mAP for {}: {}'.format(_type, average_mAP))
         sys.stdout.flush()
+
 
 def compute_average_precision_detection(ground_truth, prediction, tiou_thresholds=np.linspace(0.5, 0.95, 10)):
     """Compute average precision (detection task) between ground truth and
@@ -280,7 +281,7 @@ def compute_average_precision_detection(ground_truth, prediction, tiou_threshold
         return ap
 
     npos = float(len(ground_truth))
-    lock_gt = np.ones((len(tiou_thresholds),len(ground_truth))) * -1
+    lock_gt = np.ones((len(tiou_thresholds), len(ground_truth))) * -1
     # Sort predictions by decreasing score order.
     sort_idx = prediction['score'].values.argsort()[::-1]
     prediction = prediction.loc[sort_idx].reset_index(drop=True)
@@ -330,7 +331,7 @@ def compute_average_precision_detection(ground_truth, prediction, tiou_threshold
     precision_cumsum = tp_cumsum / (tp_cumsum + fp_cumsum)
 
     for tidx in range(len(tiou_thresholds)):
-        ap[tidx] = interpolated_prec_rec(precision_cumsum[tidx,:], recall_cumsum[tidx,:])
+        ap[tidx] = interpolated_prec_rec(precision_cumsum[tidx, :], recall_cumsum[tidx, :])
 
     return ap
 
@@ -345,6 +346,7 @@ def interpolated_prec_rec(prec, rec):
     idx = np.where(mrec[1::] != mrec[0:-1])[0] + 1
     ap = np.sum((mrec[idx] - mrec[idx - 1]) * mprec[idx])
     return ap
+
 
 def segment_iou(target_segment, candidate_segments):
     """Compute the temporal intersection over union between a
@@ -368,7 +370,7 @@ def segment_iou(target_segment, candidate_segments):
     segments_intersection = (tt2 - tt1).clip(0)
     # Segment union.
     segments_union = (candidate_segments[:, 1] - candidate_segments[:, 0]) \
-      + (target_segment[1] - target_segment[0]) - segments_intersection
+                     + (target_segment[1] - target_segment[0]) - segments_intersection
     # Compute overlap as the ratio of the intersection
     # over union of two segments.
     tIoU = segments_intersection.astype(float) / segments_union

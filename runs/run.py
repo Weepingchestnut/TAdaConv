@@ -6,6 +6,7 @@
 import os
 import sys
 import time
+
 sys.path.append(os.path.abspath(os.curdir))
 
 from utils.launcher import launch_task
@@ -16,6 +17,7 @@ from test_epic_localization import test_epic_localization
 from submission_test import submission_test
 
 from utils.config import Config
+
 
 def _prepare_data(cfg):
     if cfg.TASK_TYPE in ['classification']:
@@ -32,12 +34,12 @@ def _prepare_data(cfg):
         submission_func = submission_test
     else:
         raise ValueError("unknown TASK_TYPE {}".format(cfg.TASK_TYPE))
-    
+
     run_list = []
     if cfg.TRAIN.ENABLE:
         # Training process is performed by the entry function defined above.
         run_list.append([cfg.deep_copy(), train_func])
-    
+
     if cfg.TEST.ENABLE:
         # Test is performed by the entry function defined above.
         run_list.append([cfg.deep_copy(), test_func])
@@ -75,8 +77,9 @@ def _prepare_data(cfg):
             cfg.TEST.NUM_ENSEMBLE_VIEWS, cfg.TEST.NUM_SPATIAL_CROPS
         )
         run_list.append([cfg.deep_copy(), submission_func])
-  
+
     return run_list
+
 
 def main():
     """
